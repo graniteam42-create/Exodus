@@ -17,6 +17,7 @@ async function getPoolStrategies() {
       LEFT JOIN strategy_results sr ON s.id = sr.strategy_id
       LEFT JOIN saved_strategies ss ON s.id = ss.strategy_id
       ORDER BY sr.rating_score DESC NULLS LAST
+      LIMIT 500
     `;
 
     return rows.map(r => ({

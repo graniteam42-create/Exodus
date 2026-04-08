@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import StrategyPoolRow from '@/components/StrategyPoolRow';
 import type { Asset, MarketData } from '@/lib/types';
-import { scoreToGrade } from '@/lib/types';
 import { allRules } from '@/lib/engine/rules/index';
-import { backtestStrategyFast, precomputeSignals, getTradingDates } from '@/lib/engine/backtest';
+import { backtestStrategyFast, precomputeSignals } from '@/lib/engine/backtest';
 import type { PrecomputedSignals } from '@/lib/engine/backtest';
 import { computeRatingScore } from '@/lib/engine/scoring';
 
