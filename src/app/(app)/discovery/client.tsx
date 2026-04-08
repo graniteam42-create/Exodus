@@ -5,9 +5,9 @@ import StrategyPoolRow from '@/components/StrategyPoolRow';
 import type { Asset, MarketData } from '@/lib/types';
 import { scoreToGrade } from '@/lib/types';
 import { allRules } from '@/lib/engine/rules/index';
-import { backtestStrategy } from '@/lib/engine/backtest';
+import { backtestStrategyFast, precomputeSignals, getTradingDates } from '@/lib/engine/backtest';
+import type { PrecomputedSignals } from '@/lib/engine/backtest';
 import { computeRatingScore } from '@/lib/engine/scoring';
-import { computeCurrentSignal } from '@/lib/engine/signals';
 
 interface PoolStrategy {
   strategy_id: string;
@@ -50,8 +50,9 @@ function generateName(rules: { id: string; category: string }[]): string {
   return parts.join(' + ');
 }
 
-// Module-level cache for market data (persists across runs, cleared on page reload)
+// Module-level caches (persist across runs, cleared on page reload)
 let cachedMarketData: MarketData | null = null;
+let cachedPrecomputed: PrecomputedSignals | null = null;
 
 export default function DiscoveryClient({ strategies: initial, dataDate }: Props) {
   const [strategies, setStrategies] = useState(initial);
@@ -147,12 +148,29 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
       const endDate = priceDates[priceDates.length - 1].date;
       const dataLoadTime = Date.now() - startTime;
 
-      setProgress({ pct: 10, phase: `Data loaded (${(dataLoadTime / 1000).toFixed(1)}s). Generating candidates...`, tested: 0, passed: 0 });
+      // Phase 2: Pre-compute all rule signals (one-time, cached)
+      let precomputed: PrecomputedSignals;
+      if (cachedPrecomputed) {
+        setProgress({ pct: 10, phase: 'Using cached rule signals...', tested: 0, passed: 0 });
+        precomputed = cachedPrecomputed;
+      } else {
+        setProgress({ pct: 10, phase: 'Pre-computing rule signals (first run only)...', tested: 0, passed: 0 });
+        await new Promise(r => setTimeout(r, 0)); // Yield for UI
 
-      // Phase 2: Generate candidates
+        const precomputeStart = Date.now();
+        precomputed = precomputeSignals(allRules, data, startDate, endDate);
+        cachedPrecomputed = precomputed;
+        const precomputeTime = ((Date.now() - precomputeStart) / 1000).toFixed(1);
+        setProgress({ pct: 25, phase: `Rules pre-computed in ${precomputeTime}s. Generating candidates...`, tested: 0, passed: 0 });
+        await new Promise(r => setTimeout(r, 0));
+      }
+
+      // Phase 3: Generate candidates
       const rulePool = [...allRules];
+      // Build a map from rule ID to rule for fast lookup
+      const ruleMap = new Map(rulePool.map(r => [r.id, r]));
       const seen = new Set<string>();
-      const candidates: { name: string; rules: typeof allRules; ruleIds: string[] }[] = [];
+      const candidates: { name: string; ruleIds: string[]; ruleAssets: Asset[] }[] = [];
 
       for (let attempt = 0; attempt < maxStrategies * 4 && candidates.length < maxStrategies; attempt++) {
         const numRules = 3 + Math.floor(Math.random() * (maxRules - 2));
@@ -167,10 +185,14 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         const cats = new Set(selected.map(r => r.category));
         if (cats.size < 2) continue;
 
-        candidates.push({ name: generateName(selected), rules: selected, ruleIds });
+        candidates.push({
+          name: generateName(selected),
+          ruleIds,
+          ruleAssets: ruleIds.map(id => ruleMap.get(id)!.asset),
+        });
       }
 
-      // Phase 3: Backtest in browser — real-time progress
+      // Phase 4: Fast backtest using pre-computed signals
       const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_rating: 0 };
       const passedStrategies: {
         name: string;
@@ -188,27 +210,26 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         trades: any[];
       }[] = [];
 
-      const updateInterval = Math.max(1, Math.floor(candidates.length / 100)); // Update progress ~100 times
+      const updateInterval = Math.max(1, Math.floor(candidates.length / 200));
 
       for (let i = 0; i < candidates.length; i++) {
         const candidate = candidates[i];
 
-        // Update progress periodically (not every iteration — that would be slow)
         if (i % updateInterval === 0) {
-          const pct = 10 + Math.round((i / candidates.length) * 80);
+          const pct = 25 + Math.round((i / candidates.length) * 65);
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+          const rate = i > 0 ? Math.round(i / ((Date.now() - startTime) / 1000)) : 0;
           setProgress({
             pct,
-            phase: `Testing ${i.toLocaleString()}/${candidates.length.toLocaleString()} (${elapsed}s) — ${passedStrategies.length} passed`,
+            phase: `Testing ${i.toLocaleString()}/${candidates.length.toLocaleString()} (${elapsed}s, ${rate}/s) — ${passedStrategies.length} passed`,
             tested: i,
             passed: passedStrategies.length,
           });
-          // Yield to browser so UI updates
           await new Promise(r => setTimeout(r, 0));
         }
 
         try {
-          const result = backtestStrategy(candidate.rules, 'majority', data, startDate, endDate);
+          const result = backtestStrategyFast(candidate.ruleIds, candidate.ruleAssets, 'majority', precomputed);
 
           if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
           if (result.total_trades < 2) { filterStats.few_trades++; continue; }
@@ -225,14 +246,12 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
             (result.win_rate > 0.55 ? 15 : result.win_rate > 0.45 ? 10 : 5)
           ));
 
-          const current = computeCurrentSignal(candidate.rules, 'majority', data);
-
           passedStrategies.push({
             name: candidate.name,
             ruleIds: candidate.ruleIds,
             ratingScore,
             robustnessScore,
-            signal: current.signal,
+            signal: result.final_signal,
             cagr: result.cagr,
             sharpe: result.sharpe,
             max_drawdown: result.max_drawdown,

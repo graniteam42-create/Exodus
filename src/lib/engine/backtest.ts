@@ -426,6 +426,240 @@ function emptyResult(): BacktestResult {
   };
 }
 
+// ===== Pre-computed Rule Signals for Fast Discovery =====
+
+/**
+ * Pre-computed boolean matrix: for each rule, whether it's active on each trading date.
+ * Computing this once for all 160 rules × ~6000 dates takes ~30-60s,
+ * but then each strategy backtest is pure array indexing (~0.1ms).
+ */
+export interface PrecomputedSignals {
+  dates: string[];
+  /** Map from rule.id to boolean array (one per date) */
+  ruleActive: Map<string, boolean[]>;
+  /** Pre-computed asset returns between consecutive dates for each tradable asset */
+  dailyReturns: Record<string, number[]>; // ticker -> return[i] = return from dates[i-1] to dates[i]
+  /** Pre-computed asset returns between any two date indices */
+  cumulativeReturns: Record<string, number[]>; // ticker -> cumReturn[i] = cumulative return factor at dates[i]
+}
+
+/**
+ * Pre-compute all rule signals and price data for a date range.
+ * Call this once before running discovery on many strategies.
+ */
+export function precomputeSignals(
+  allRules: RuleDefinition[],
+  data: MarketData,
+  startDate: string,
+  endDate: string,
+  onProgress?: (pct: number, phase: string) => void
+): PrecomputedSignals {
+  const dates = getTradingDates(data, startDate, endDate);
+
+  // Pre-compute rule activations
+  const ruleActive = new Map<string, boolean[]>();
+  for (let r = 0; r < allRules.length; r++) {
+    const rule = allRules[r];
+    const active: boolean[] = new Array(dates.length);
+    for (let d = 0; d < dates.length; d++) {
+      try {
+        active[d] = rule.evaluate(data, dates[d]);
+      } catch {
+        active[d] = false;
+      }
+    }
+    ruleActive.set(rule.id, active);
+
+    if (onProgress && r % 10 === 0) {
+      onProgress(Math.round((r / allRules.length) * 100), `Pre-computing rule ${r + 1}/${allRules.length}: ${rule.name}`);
+    }
+  }
+
+  // Pre-compute daily returns and cumulative returns for tradable assets
+  const dailyReturns: Record<string, number[]> = {};
+  const cumulativeReturns: Record<string, number[]> = {};
+
+  for (const asset of ['GLD', 'SLV', 'QQQ'] as Asset[]) {
+    const returns: number[] = new Array(dates.length).fill(0);
+    const cumReturn: number[] = new Array(dates.length).fill(1);
+
+    for (let i = 1; i < dates.length; i++) {
+      returns[i] = getAssetReturn(data, asset, dates[i - 1], dates[i]);
+      cumReturn[i] = cumReturn[i - 1] * (1 + returns[i]);
+    }
+    dailyReturns[asset] = returns;
+    cumulativeReturns[asset] = cumReturn;
+  }
+  // Cash
+  dailyReturns['Cash'] = new Array(dates.length).fill(0);
+  cumulativeReturns['Cash'] = new Array(dates.length).fill(1);
+
+  return { dates, ruleActive, dailyReturns, cumulativeReturns };
+}
+
+/**
+ * Fast backtest using pre-computed signals. ~100-1000x faster than backtestStrategy.
+ */
+export function backtestStrategyFast(
+  ruleIds: string[],
+  ruleAssets: Asset[],
+  ruleLogic: 'majority' | 'all' | 'any',
+  precomputed: PrecomputedSignals
+): BacktestResult {
+  const { dates, ruleActive, dailyReturns, cumulativeReturns } = precomputed;
+
+  if (dates.length < 2) return emptyResult();
+
+  // Look up the pre-computed boolean arrays for this strategy's rules
+  const ruleArrays: boolean[][] = [];
+  const assets: Asset[] = [];
+  for (let i = 0; i < ruleIds.length; i++) {
+    const arr = ruleActive.get(ruleIds[i]);
+    if (arr) {
+      ruleArrays.push(arr);
+      assets.push(ruleAssets[i]);
+    }
+  }
+  if (ruleArrays.length === 0) return emptyResult();
+
+  const numRules = ruleArrays.length;
+  const halfRules = numRules / 2;
+
+  // State
+  let equity = 1.0;
+  let currentHolding: Asset = 'Cash';
+  let holdingSince = 0;
+  let tradeStartEquity = equity;
+  let tradeStartDate = dates[0];
+
+  const trades: TradeRecord[] = [];
+  const equityCurve: { date: string; value: number }[] = [];
+  let pendingSignal: { signal: Asset; signalDay: number } | null = null;
+
+  for (let i = 0; i < dates.length; i++) {
+    // Update equity
+    if (i > 0 && currentHolding !== 'Cash') {
+      equity *= (1 + dailyReturns[currentHolding][i]);
+    }
+
+    // Execute pending trade
+    if (pendingSignal && pendingSignal.signalDay === i - 1) {
+      // Record trade
+      if (i > 0 && holdingSince < i) {
+        const tradeDays = i - holdingSince;
+        const tradeReturn = tradeStartEquity > 0 ? (equity - tradeStartEquity) / tradeStartEquity : 0;
+        trades.push({
+          from_date: tradeStartDate,
+          to_date: dates[i],
+          holding: currentHolding,
+          days: tradeDays,
+          return_pct: tradeReturn,
+          good_call: tradeReturn >= 0, // Simplified for speed
+        });
+      }
+
+      equity *= (1 - TRANSACTION_COST_BPS / 10000);
+      currentHolding = pendingSignal.signal;
+      holdingSince = i;
+      tradeStartDate = dates[i];
+      tradeStartEquity = equity;
+      pendingSignal = null;
+    }
+
+    // Evaluate signal using pre-computed rule activations
+    let activeCount = 0;
+    const voteCounts: Record<Asset, number> = { GLD: 0, SLV: 0, QQQ: 0, Cash: 0 };
+
+    for (let r = 0; r < numRules; r++) {
+      if (ruleArrays[r][i]) {
+        activeCount++;
+        voteCounts[assets[r]]++;
+      }
+    }
+
+    let signal: Asset = 'Cash';
+    if (ruleLogic === 'majority' && activeCount > halfRules) {
+      signal = fastMajorityVote(voteCounts);
+    } else if (ruleLogic === 'all' && activeCount === numRules) {
+      signal = fastMajorityVote(voteCounts);
+    } else if (ruleLogic === 'any' && activeCount > 0) {
+      signal = fastMajorityVote(voteCounts);
+    }
+
+    const daysSinceEntry = i - holdingSince;
+    if (signal !== currentHolding && daysSinceEntry >= MIN_HOLD_DAYS) {
+      pendingSignal = { signal, signalDay: i };
+    }
+
+    equityCurve.push({ date: dates[i], value: equity });
+  }
+
+  // Close final trade
+  const lastDate = dates[dates.length - 1];
+  const finalTradeDays = dates.length - 1 - holdingSince;
+  if (finalTradeDays > 0) {
+    const tradeReturn = tradeStartEquity > 0 ? (equity - tradeStartEquity) / tradeStartEquity : 0;
+    trades.push({
+      from_date: tradeStartDate,
+      to_date: lastDate,
+      holding: currentHolding,
+      days: finalTradeDays,
+      return_pct: tradeReturn,
+      good_call: tradeReturn >= 0,
+    });
+  }
+
+  // Final signal
+  let finalActiveCount = 0;
+  const finalVotes: Record<Asset, number> = { GLD: 0, SLV: 0, QQQ: 0, Cash: 0 };
+  const lastIdx = dates.length - 1;
+  for (let r = 0; r < numRules; r++) {
+    if (ruleArrays[r][lastIdx]) {
+      finalActiveCount++;
+      finalVotes[assets[r]]++;
+    }
+  }
+  let finalSignal: Asset = 'Cash';
+  if (ruleLogic === 'majority' && finalActiveCount > halfRules) {
+    finalSignal = fastMajorityVote(finalVotes);
+  }
+
+  // Compute metrics
+  const totalYears = dates.length / 252;
+  const cagr = totalYears > 0 ? Math.pow(equity, 1 / totalYears) - 1 : 0;
+  const sharpe = computeSharpe(equityCurve);
+  const maxDrawdown = computeMaxDrawdown(equityCurve);
+  const { profitFactor, winRate, avgWinner, avgLoser } = computeTradeStats(trades);
+
+  return {
+    trades,
+    equity_curve: equityCurve,
+    cagr,
+    sharpe,
+    max_drawdown: maxDrawdown,
+    profit_factor: profitFactor,
+    total_trades: trades.length,
+    trades_per_year: totalYears > 0 ? trades.length / totalYears : 0,
+    win_rate: winRate,
+    avg_winner: avgWinner,
+    avg_loser: avgLoser,
+    final_signal: finalSignal,
+  };
+}
+
+function fastMajorityVote(counts: Record<Asset, number>): Asset {
+  const priority: Asset[] = ['GLD', 'QQQ', 'SLV', 'Cash'];
+  let best: Asset = 'Cash';
+  let bestCount = 0;
+  for (const asset of priority) {
+    if (counts[asset] > bestCount) {
+      bestCount = counts[asset];
+      best = asset;
+    }
+  }
+  return best;
+}
+
 // ===== Exported Helpers (used by validation) =====
 
 export { evaluateSignal, getTradingDates, getAssetReturn, computeSharpe };
