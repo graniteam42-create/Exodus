@@ -27,6 +27,17 @@ export async function refreshSingleSeries(
   id: string
 ): Promise<{ success: boolean; rows_added: number; error?: string }> {
   try {
+    // Skip if already updated today
+    const source = type === 'fred' ? 'fred' : 'eodhd';
+    const { rows: metaCheck } = await sql`
+      SELECT last_updated FROM data_metadata
+      WHERE source = ${source} AND series_id = ${id}
+      AND last_updated > NOW() - INTERVAL '12 hours'
+    `;
+    if (metaCheck.length > 0) {
+      return { success: true, rows_added: 0 };
+    }
+
     if (type === 'fred') {
       const lastDate = await getLatestDate('fred', id);
       const startDate = lastDate ? addDays(lastDate, 1) : '2000-01-01';
