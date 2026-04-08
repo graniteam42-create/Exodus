@@ -117,13 +117,25 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         setProgress({ pct: 8, phase: 'Using cached market data...', tested: 0, passed: 0 });
         data = cachedMarketData;
       } else {
-        setProgress({ pct: 5, phase: 'Downloading market data (first run only)...', tested: 0, passed: 0 });
+        setProgress({ pct: 5, phase: 'Downloading market data (first run only — may take 15-30s)...', tested: 0, passed: 0 });
         const dataRes = await fetch('/api/data/market');
         if (!dataRes.ok) {
-          throw new Error('Failed to load market data. Try refreshing data first.');
+          const errText = await dataRes.text().catch(() => 'Unknown error');
+          throw new Error(`Failed to load market data (${dataRes.status}): ${errText.slice(0, 200)}`);
+        }
+        const contentType = dataRes.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error('Market data endpoint timed out. Try again — data may still be loading from the database.');
         }
         data = await dataRes.json();
+        if ((data as any).error) {
+          throw new Error(`Market data error: ${(data as any).error}`);
+        }
         cachedMarketData = data;
+        const keys = Object.keys(data.prices || {});
+        const fredKeys = Object.keys(data.fred || {});
+        setProgress({ pct: 8, phase: `Data loaded: ${keys.length} tickers, ${fredKeys.length} FRED series`, tested: 0, passed: 0 });
+        await new Promise(r => setTimeout(r, 500)); // Brief pause to show data stats
       }
 
       const priceDates = Object.values(data.prices)[0];
