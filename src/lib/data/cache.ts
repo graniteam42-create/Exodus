@@ -20,14 +20,13 @@ import type {
 
 /**
  * Refresh a single FRED series or EODHD ticker.
- * Designed to be called one at a time to stay within Vercel's 60s timeout.
+ * Uses batch inserts for speed. Skips if updated within 12 hours.
  */
 export async function refreshSingleSeries(
   type: 'fred' | 'eodhd',
   id: string
 ): Promise<{ success: boolean; rows_added: number; error?: string }> {
   try {
-    // Skip if already updated today
     const source = type === 'fred' ? 'fred' : 'eodhd';
     const { rows: metaCheck } = await sql`
       SELECT last_updated FROM data_metadata
@@ -42,23 +41,25 @@ export async function refreshSingleSeries(
       const lastDate = await getLatestDate('fred', id);
       const startDate = lastDate ? addDays(lastDate, 1) : '2000-01-01';
       const rows = await fetchFredSeries(id, startDate);
-      if (rows.length === 0) return { success: true, rows_added: 0 };
-
-      for (const row of rows) {
-        await sql`
-          INSERT INTO fred_data (series_id, date, value)
-          VALUES (${id}, ${row.date}::date, ${row.value})
-          ON CONFLICT (series_id, date) DO UPDATE SET value = EXCLUDED.value
-        `;
+      if (rows.length === 0) {
+        await upsertDataMetadata('fred', id, lastDate || startDate, 0);
+        return { success: true, rows_added: 0 };
       }
 
-      const countResult = await sql`SELECT COUNT(*)::int AS cnt FROM fred_data WHERE series_id = ${id}`;
-      const totalRows = countResult.rows[0].cnt as number;
-      const maxResult = await sql`SELECT MAX(date) AS max_date FROM fred_data WHERE series_id = ${id}`;
-      const maxDate = maxResult.rows[0].max_date;
-      const maxDateStr = typeof maxDate === 'string' ? maxDate : (maxDate as Date).toISOString().slice(0, 10);
-      await upsertDataMetadata('fred', id, maxDateStr, totalRows);
+      // Batch insert: build VALUES string
+      const batchSize = 200;
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize);
+        const values = batch.map(r => `('${id}', '${r.date}'::date, ${r.value})`).join(',');
+        await sql.query(
+          `INSERT INTO fred_data (series_id, date, value) VALUES ${values}
+           ON CONFLICT (series_id, date) DO UPDATE SET value = EXCLUDED.value`
+        );
+      }
 
+      const maxDate = rows[rows.length - 1].date;
+      const countResult = await sql`SELECT COUNT(*)::int AS cnt FROM fred_data WHERE series_id = ${id}`;
+      await upsertDataMetadata('fred', id, maxDate, countResult.rows[0].cnt as number);
       return { success: true, rows_added: rows.length };
     }
 
@@ -66,25 +67,30 @@ export async function refreshSingleSeries(
       const lastDate = await getLatestDate('eodhd', id);
       const startDate = lastDate ? addDays(lastDate, 1) : '2000-01-01';
       const rows = await fetchEodhdPrices(id, startDate);
-      if (rows.length === 0) return { success: true, rows_added: 0 };
-
-      for (const row of rows) {
-        await sql`
-          INSERT INTO price_data (ticker, date, open, high, low, close, volume, adjusted_close)
-          VALUES (${id}, ${row.date}::date, ${row.open}, ${row.high}, ${row.low}, ${row.close}, ${row.volume}, ${row.adjusted_close})
-          ON CONFLICT (ticker, date) DO UPDATE SET
-            open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low,
-            close = EXCLUDED.close, volume = EXCLUDED.volume, adjusted_close = EXCLUDED.adjusted_close
-        `;
+      if (rows.length === 0) {
+        await upsertDataMetadata('eodhd', id, lastDate || startDate, 0);
+        return { success: true, rows_added: 0 };
       }
 
-      const countResult = await sql`SELECT COUNT(*)::int AS cnt FROM price_data WHERE ticker = ${id}`;
-      const totalRows = countResult.rows[0].cnt as number;
-      const maxResult = await sql`SELECT MAX(date) AS max_date FROM price_data WHERE ticker = ${id}`;
-      const maxDate = maxResult.rows[0].max_date;
-      const maxDateStr = typeof maxDate === 'string' ? maxDate : (maxDate as Date).toISOString().slice(0, 10);
-      await upsertDataMetadata('eodhd', id, maxDateStr, totalRows);
+      // Batch insert
+      const batchSize = 200;
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize);
+        const values = batch.map(r =>
+          `('${id}', '${r.date}'::date, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume}, ${r.adjusted_close})`
+        ).join(',');
+        await sql.query(
+          `INSERT INTO price_data (ticker, date, open, high, low, close, volume, adjusted_close)
+           VALUES ${values}
+           ON CONFLICT (ticker, date) DO UPDATE SET
+             open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low,
+             close=EXCLUDED.close, volume=EXCLUDED.volume, adjusted_close=EXCLUDED.adjusted_close`
+        );
+      }
 
+      const maxDate = rows[rows.length - 1].date;
+      const countResult = await sql`SELECT COUNT(*)::int AS cnt FROM price_data WHERE ticker = ${id}`;
+      await upsertDataMetadata('eodhd', id, maxDate, countResult.rows[0].cnt as number);
       return { success: true, rows_added: rows.length };
     }
 
@@ -94,6 +100,38 @@ export async function refreshSingleSeries(
     console.error(`refreshSingleSeries(${type}, ${id}):`, msg);
     return { success: false, rows_added: 0, error: msg };
   }
+}
+
+/**
+ * Fast daily refresh: fetches all series in parallel (server-side).
+ * For daily updates (1-2 rows each), this completes in ~5-10 seconds.
+ * Falls back to single-series mode for initial bulk loads.
+ */
+export async function refreshAllFast(): Promise<{ success: boolean; updated: number; skipped: number; errors: string[] }> {
+  const errors: string[] = [];
+  let updated = 0;
+  let skipped = 0;
+
+  const fredIds = FRED_SERIES.map(s => s.id);
+  const eodhdIds = EODHD_TICKERS.map(t => t.ticker);
+
+  // Run all fetches in parallel (API calls are the bottleneck, not DB)
+  const results = await Promise.allSettled([
+    ...fredIds.map(id => refreshSingleSeries('fred', id)),
+    ...eodhdIds.map(id => refreshSingleSeries('eodhd', id)),
+  ]);
+
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      if (r.value.rows_added > 0) updated++;
+      else skipped++;
+      if (r.value.error) errors.push(r.value.error);
+    } else {
+      errors.push(r.reason?.message || 'Unknown error');
+    }
+  }
+
+  return { success: errors.length === 0, updated, skipped, errors };
 }
 
 export async function refreshAllData(): Promise<{

@@ -26,12 +26,22 @@ export default function RadarClient({ dataHealth, consensus, agreements, regimeS
 
   async function handleRefresh() {
     setRefreshing(true);
-    setRefreshStatus('Initializing database...');
     try {
-      // Init DB first
+      // Try fast parallel refresh first (works when data already exists)
+      setRefreshStatus('Refreshing all data...');
+      const res = await fetch('/api/data/refresh', { method: 'POST' });
+      const result = await res.json();
+
+      if (res.ok && !result.errors?.length) {
+        setRefreshStatus('Done! Reloading...');
+        window.location.reload();
+        return;
+      }
+
+      // If fast refresh failed (likely first load), fall back to one-by-one
+      setRefreshStatus('First load detected — fetching series individually...');
       await fetch('/api/data/init', { method: 'POST' });
 
-      // Fetch each series individually to avoid timeout
       const series = [
         'T10Y2Y','T10Y3M','DFII10','T10YIE','BAMLH0A0HYM2','M2SL','SAHMREALTIME',
         'UMCSENT','NFCI','DRTSCILM','WALCL','RRPONTSYD','VIXCLS','ICSA','CCSA',

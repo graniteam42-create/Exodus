@@ -8,17 +8,17 @@ export async function POST(req: NextRequest) {
 
   try {
     if (type && id) {
-      // Single series/ticker fetch
+      // Single series/ticker fetch (used for initial bulk load from the UI)
       const { refreshSingleSeries } = await import('@/lib/data/cache');
       const result = await refreshSingleSeries(type as 'fred' | 'eodhd', id);
       return NextResponse.json(result);
     }
 
-    // Full refresh (legacy, may timeout)
+    // Fast parallel refresh (used for daily updates when data already exists)
     const { initializeDatabase } = await import('@/lib/db');
     await initializeDatabase();
-    const { refreshAllData } = await import('@/lib/data/cache');
-    const result = await refreshAllData();
+    const { refreshAllFast } = await import('@/lib/data/cache');
+    const result = await refreshAllFast();
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
