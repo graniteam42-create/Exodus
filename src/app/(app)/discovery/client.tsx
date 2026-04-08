@@ -97,9 +97,23 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         body: JSON.stringify({ max_rules: maxRules, max_strategies: maxStrategies }),
       });
 
-      const result = await res.json();
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       const now = new Date().toLocaleTimeString();
+
+      // Handle non-JSON responses (e.g. Vercel timeout returns HTML)
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        setLastResult({
+          type: 'error',
+          message: `Server timeout after ${elapsed}s`,
+          detail: 'The request took too long. Try a lower Max Strategies value (e.g. 2000) or run multiple times.',
+          timestamp: now,
+        });
+        setProgress({ pct: 0, phase: '', generated: 0, passed: 0 });
+        return;
+      }
+
+      const result = await res.json();
 
       if (!res.ok || result.error) {
         setLastResult({
@@ -132,22 +146,30 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
       }
 
       const fs = result.filter_stats;
-      const filterDetail = fs
-        ? `Rejected: ${fs.low_sharpe} low Sharpe, ${fs.few_trades} too few trades, ${fs.negative_cagr} negative CAGR, ${fs.low_rating} low rating, ${fs.backtest_error} errors`
-        : '';
+      const filterParts: string[] = [];
+      if (fs) {
+        if (fs.low_sharpe) filterParts.push(`${fs.low_sharpe} low Sharpe`);
+        if (fs.few_trades) filterParts.push(`${fs.few_trades} too few trades`);
+        if (fs.negative_cagr) filterParts.push(`${fs.negative_cagr} negative CAGR`);
+        if (fs.low_rating) filterParts.push(`${fs.low_rating} low rating`);
+        if (fs.backtest_error) filterParts.push(`${fs.backtest_error} errors`);
+      }
+      const filterDetail = filterParts.length > 0 ? `Rejected: ${filterParts.join(', ')}` : '';
+      const earlyNote = result.stopped_early ? ' (stopped early — hit time limit, run again to test more)' : '';
+      const serverTime = result.timing?.total_s ? ` · Server: ${result.timing.total_s}s` : '';
 
       if (result.passed === 0) {
         setLastResult({
           type: 'warning',
-          message: `No strategies passed quality filters (${result.generated} tested in ${elapsed}s)`,
-          detail: filterDetail + '. Try running again — random generation produces different candidates each time.',
+          message: `No strategies passed quality filters (${result.generated} tested in ${elapsed}s)${earlyNote}`,
+          detail: filterDetail + (filterDetail ? '. ' : '') + 'Try running again — random generation produces different candidates each time.',
           timestamp: now,
         });
       } else {
         setLastResult({
           type: 'success',
-          message: `${result.passed} strategies added to pool (${result.generated} tested in ${elapsed}s)`,
-          detail: filterDetail,
+          message: `${result.saved_to_db || result.passed} strategies added to pool (${result.generated} tested in ${elapsed}s)${earlyNote}`,
+          detail: filterDetail + serverTime,
           timestamp: now,
         });
       }

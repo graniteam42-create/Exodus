@@ -3,10 +3,14 @@ import { sql } from '@vercel/postgres';
 
 export const maxDuration = 60;
 
+// Time budget: 55s total (leave 5s buffer for Vercel's 60s limit)
+const TIME_BUDGET_MS = 55_000;
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const maxRules = body.max_rules || 5;
   const maxStrategies = body.max_strategies || 2000;
+  const startTime = Date.now();
 
   try {
     // Dynamic imports
@@ -18,6 +22,8 @@ export async function POST(req: NextRequest) {
     const { scoreToGrade } = await import('@/lib/types');
 
     const data = await buildMarketData();
+    const dataLoadTime = Date.now() - startTime;
+
     const priceDates = Object.values(data.prices)[0];
     if (!priceDates || priceDates.length < 300) {
       return NextResponse.json({
@@ -47,14 +53,13 @@ export async function POST(req: NextRequest) {
       if (seen.has(key)) continue;
       seen.add(key);
 
-      // Ensure at least 2 different categories
       const cats = new Set(selected.map(r => r.category));
       if (cats.size < 2) continue;
 
       candidates.push({ name: generateName(selected), rules: selected, ruleIds });
     }
 
-    // --- Phase 2: Backtest all candidates in-memory (fast, no DB) ---
+    // --- Phase 2: Backtest candidates with time budget ---
     const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_rating: 0 };
     const passedStrategies: {
       name: string;
@@ -65,11 +70,21 @@ export async function POST(req: NextRequest) {
       result: any;
     }[] = [];
 
+    let tested = 0;
+    let stoppedEarly = false;
+
     for (const candidate of candidates) {
+      // Check time budget — leave 10s for DB writes
+      if (Date.now() - startTime > TIME_BUDGET_MS - 10_000) {
+        stoppedEarly = true;
+        break;
+      }
+
+      tested++;
+
       try {
         const result = backtestStrategy(candidate.rules, 'majority', data, startDate, endDate);
 
-        // Quality filters
         if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
         if (result.total_trades < 2) { filterStats.few_trades++; continue; }
         if (result.cagr < -0.10) { filterStats.negative_cagr++; continue; }
@@ -77,7 +92,6 @@ export async function POST(req: NextRequest) {
         const ratingScore = computeRatingScore(result);
         if (ratingScore < 40) { filterStats.low_rating++; continue; }
 
-        // Simplified robustness score
         const robustnessScore = Math.min(100, Math.max(0,
           (result.profit_factor > 1 ? 30 : 0) +
           (result.sharpe > 0.5 ? 20 : result.sharpe > 0.3 ? 10 : 0) +
@@ -105,14 +119,15 @@ export async function POST(req: NextRequest) {
     const strategyIds: string[] = [];
 
     if (passedStrategies.length > 0) {
-      // Insert strategies in batches of 50
       const batchSize = 50;
       for (let i = 0; i < passedStrategies.length; i += batchSize) {
+        // Check time budget before each DB batch
+        if (Date.now() - startTime > TIME_BUDGET_MS) break;
+
         const batch = passedStrategies.slice(i, i + batchSize);
         const ids = batch.map(() => `s_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
         strategyIds.push(...ids);
 
-        // Batch insert strategies
         const stratValues = batch.map((s, j) =>
           `('${ids[j]}', '${s.name.replace(/'/g, "''")}', '${JSON.stringify(s.ruleIds).replace(/'/g, "''")}', 'majority', '${runId}')`
         ).join(',');
@@ -120,7 +135,6 @@ export async function POST(req: NextRequest) {
           `INSERT INTO strategies (id, name, rules, rule_logic, discovery_run_id) VALUES ${stratValues}`
         );
 
-        // Batch insert results
         const resValues = batch.map((s, j) =>
           `('${ids[j]}', '${s.signal}', ${s.ratingScore}, '${scoreToGrade(s.ratingScore)}', ${s.robustnessScore}, '${scoreToGrade(s.robustnessScore)}', ${s.result.cagr}, ${s.result.sharpe}, ${s.result.max_drawdown}, ${s.result.profit_factor}, ${s.result.trades_per_year}, ${s.result.total_trades}, 0, 0, 0, true)`
         ).join(',');
@@ -139,7 +153,6 @@ export async function POST(req: NextRequest) {
           }
         }
         if (tradeRows.length > 0) {
-          // Insert trades in sub-batches of 200
           for (let t = 0; t < tradeRows.length; t += 200) {
             const tradeBatch = tradeRows.slice(t, t + 200);
             await sql.query(
@@ -153,15 +166,24 @@ export async function POST(req: NextRequest) {
     // Save discovery run
     await sql`
       INSERT INTO discovery_runs (id, started_at, completed_at, config, strategies_tested, strategies_passed, best_rating)
-      VALUES (${runId}, NOW(), NOW(), ${JSON.stringify({ max_rules: maxRules, max_strategies: maxStrategies })}, ${candidates.length}, ${passedStrategies.length}, ${0})
+      VALUES (${runId}, NOW(), NOW(), ${JSON.stringify({ max_rules: maxRules, max_strategies: maxStrategies })}, ${tested}, ${passedStrategies.length}, ${0})
     `;
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
     return NextResponse.json({
       success: true,
-      generated: candidates.length,
+      generated: tested,
+      candidates_created: candidates.length,
       passed: passedStrategies.length,
+      saved_to_db: strategyIds.length,
       strategy_ids: strategyIds,
       filter_stats: filterStats,
+      stopped_early: stoppedEarly,
+      timing: {
+        data_load_ms: dataLoadTime,
+        total_s: elapsed,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
