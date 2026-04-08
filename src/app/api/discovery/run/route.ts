@@ -6,14 +6,14 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const maxRules = body.max_rules || 5;
-  const maxStrategies = body.max_strategies || 50;
+  const maxStrategies = body.max_strategies || 2000;
 
   try {
     // Dynamic imports
     const { buildMarketData } = await import('@/lib/data/cache');
     const { allRules } = await import('@/lib/engine/rules/index');
     const { backtestStrategy } = await import('@/lib/engine/backtest');
-    const { computeRatingScore, computeRobustnessScore } = await import('@/lib/engine/scoring');
+    const { computeRatingScore } = await import('@/lib/engine/scoring');
     const { computeCurrentSignal } = await import('@/lib/engine/signals');
     const { scoreToGrade } = await import('@/lib/types');
 
@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
     const runId = `run_${Date.now()}`;
     const rulePool = [...allRules];
 
-    // Generate candidates
+    // --- Phase 1: Generate unique candidate rule combos ---
     const candidates: { name: string; rules: typeof allRules; ruleIds: string[] }[] = [];
     const seen = new Set<string>();
 
-    for (let attempt = 0; attempt < maxStrategies * 5 && candidates.length < maxStrategies; attempt++) {
+    for (let attempt = 0; attempt < maxStrategies * 4 && candidates.length < maxStrategies; attempt++) {
       const numRules = 3 + Math.floor(Math.random() * (maxRules - 2));
       const shuffled = [...rulePool].sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, numRules);
@@ -54,22 +54,30 @@ export async function POST(req: NextRequest) {
       candidates.push({ name: generateName(selected), rules: selected, ruleIds });
     }
 
-    // Backtest each candidate (simplified — no CPCV/DSR/PBO for speed)
-    let passed = 0;
-    const results: string[] = [];
+    // --- Phase 2: Backtest all candidates in-memory (fast, no DB) ---
     const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_rating: 0 };
+    const passedStrategies: {
+      name: string;
+      ruleIds: string[];
+      ratingScore: number;
+      robustnessScore: number;
+      signal: string;
+      result: any;
+    }[] = [];
 
     for (const candidate of candidates) {
       try {
         const result = backtestStrategy(candidate.rules, 'majority', data, startDate, endDate);
 
-        // Quality filters — track why candidates are rejected
+        // Quality filters
         if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
         if (result.total_trades < 2) { filterStats.few_trades++; continue; }
         if (result.cagr < -0.10) { filterStats.negative_cagr++; continue; }
 
         const ratingScore = computeRatingScore(result);
-        // Simplified robustness: based on trade count, profit factor, and consistency
+        if (ratingScore < 40) { filterStats.low_rating++; continue; }
+
+        // Simplified robustness score
         const robustnessScore = Math.min(100, Math.max(0,
           (result.profit_factor > 1 ? 30 : 0) +
           (result.sharpe > 0.5 ? 20 : result.sharpe > 0.3 ? 10 : 0) +
@@ -78,48 +86,81 @@ export async function POST(req: NextRequest) {
           (result.win_rate > 0.55 ? 15 : result.win_rate > 0.45 ? 10 : 5)
         ));
 
-        if (ratingScore < 40) { filterStats.low_rating++; continue; }
-
         const current = computeCurrentSignal(candidate.rules, 'majority', data);
-        const strategyId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
-        await sql`
-          INSERT INTO strategies (id, name, rules, rule_logic, discovery_run_id)
-          VALUES (${strategyId}, ${candidate.name}, ${JSON.stringify(candidate.ruleIds)}, 'majority', ${runId})
-        `;
-
-        await sql`
-          INSERT INTO strategy_results (strategy_id, signal, rating_score, rating_grade, robustness_score, robustness_grade, cagr, sharpe, max_drawdown, profit_factor, trades_per_year, total_trades, cpcv_pass_rate, dsr, pbo, sensitivity_pass)
-          VALUES (${strategyId}, ${current.signal}, ${ratingScore}, ${scoreToGrade(ratingScore)}, ${robustnessScore}, ${scoreToGrade(robustnessScore)}, ${result.cagr}, ${result.sharpe}, ${result.max_drawdown}, ${result.profit_factor}, ${result.trades_per_year}, ${result.total_trades}, ${0}, ${0}, ${0}, ${true})
-        `;
-
-        // Save trades
-        for (const trade of result.trades.slice(-20)) { // Last 20 trades only for speed
-          await sql`
-            INSERT INTO trades (strategy_id, from_date, to_date, holding, days, return_pct, good_call)
-            VALUES (${strategyId}, ${trade.from_date}, ${trade.to_date}, ${trade.holding}, ${trade.days}, ${trade.return_pct}, ${trade.good_call})
-          `;
-        }
-
-        passed++;
-        results.push(strategyId);
+        passedStrategies.push({
+          name: candidate.name,
+          ruleIds: candidate.ruleIds,
+          ratingScore,
+          robustnessScore,
+          signal: current.signal,
+          result,
+        });
       } catch {
         filterStats.backtest_error++;
-        continue;
+      }
+    }
+
+    // --- Phase 3: Batch-insert passing strategies into DB ---
+    const strategyIds: string[] = [];
+
+    if (passedStrategies.length > 0) {
+      // Insert strategies in batches of 50
+      const batchSize = 50;
+      for (let i = 0; i < passedStrategies.length; i += batchSize) {
+        const batch = passedStrategies.slice(i, i + batchSize);
+        const ids = batch.map(() => `s_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+        strategyIds.push(...ids);
+
+        // Batch insert strategies
+        const stratValues = batch.map((s, j) =>
+          `('${ids[j]}', '${s.name.replace(/'/g, "''")}', '${JSON.stringify(s.ruleIds).replace(/'/g, "''")}', 'majority', '${runId}')`
+        ).join(',');
+        await sql.query(
+          `INSERT INTO strategies (id, name, rules, rule_logic, discovery_run_id) VALUES ${stratValues}`
+        );
+
+        // Batch insert results
+        const resValues = batch.map((s, j) =>
+          `('${ids[j]}', '${s.signal}', ${s.ratingScore}, '${scoreToGrade(s.ratingScore)}', ${s.robustnessScore}, '${scoreToGrade(s.robustnessScore)}', ${s.result.cagr}, ${s.result.sharpe}, ${s.result.max_drawdown}, ${s.result.profit_factor}, ${s.result.trades_per_year}, ${s.result.total_trades}, 0, 0, 0, true)`
+        ).join(',');
+        await sql.query(
+          `INSERT INTO strategy_results (strategy_id, signal, rating_score, rating_grade, robustness_score, robustness_grade, cagr, sharpe, max_drawdown, profit_factor, trades_per_year, total_trades, cpcv_pass_rate, dsr, pbo, sensitivity_pass) VALUES ${resValues}`
+        );
+
+        // Batch insert last 20 trades per strategy
+        const tradeRows: string[] = [];
+        for (let j = 0; j < batch.length; j++) {
+          const trades = batch[j].result.trades?.slice(-20) || [];
+          for (const t of trades) {
+            tradeRows.push(
+              `('${ids[j]}', '${t.from_date}', '${t.to_date}', '${t.holding}', ${t.days}, ${t.return_pct}, ${t.good_call})`
+            );
+          }
+        }
+        if (tradeRows.length > 0) {
+          // Insert trades in sub-batches of 200
+          for (let t = 0; t < tradeRows.length; t += 200) {
+            const tradeBatch = tradeRows.slice(t, t + 200);
+            await sql.query(
+              `INSERT INTO trades (strategy_id, from_date, to_date, holding, days, return_pct, good_call) VALUES ${tradeBatch.join(',')}`
+            );
+          }
+        }
       }
     }
 
     // Save discovery run
     await sql`
       INSERT INTO discovery_runs (id, started_at, completed_at, config, strategies_tested, strategies_passed, best_rating)
-      VALUES (${runId}, NOW(), NOW(), ${JSON.stringify({ max_rules: maxRules, max_strategies: maxStrategies })}, ${candidates.length}, ${passed}, ${0})
+      VALUES (${runId}, NOW(), NOW(), ${JSON.stringify({ max_rules: maxRules, max_strategies: maxStrategies })}, ${candidates.length}, ${passedStrategies.length}, ${0})
     `;
 
     return NextResponse.json({
       success: true,
       generated: candidates.length,
-      passed,
-      strategy_ids: results,
+      passed: passedStrategies.length,
+      strategy_ids: strategyIds,
       filter_stats: filterStats,
     });
   } catch (error) {

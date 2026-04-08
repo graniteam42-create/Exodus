@@ -35,7 +35,7 @@ interface Props {
 export default function DiscoveryClient({ strategies: initial, dataDate }: Props) {
   const [strategies, setStrategies] = useState(initial);
   const [maxRules, setMaxRules] = useState(5);
-  const [maxStrategies, setMaxStrategies] = useState(500);
+  const [maxStrategies, setMaxStrategies] = useState(2000);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ pct: 0, phase: '', generated: 0, passed: 0 });
 
@@ -179,7 +179,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
           </div>
           <div className="config-item">
             <label>Max Strategies</label>
-            <input type="range" min={50} max={500} step={50} value={maxStrategies} onChange={e => setMaxStrategies(Number(e.target.value))} />
+            <input type="range" min={500} max={5000} step={500} value={maxStrategies} onChange={e => setMaxStrategies(Number(e.target.value))} />
             <div className="config-value">{maxStrategies}</div>
           </div>
           <div className="config-item" style={{ display: 'flex', alignItems: 'flex-end' }}>
