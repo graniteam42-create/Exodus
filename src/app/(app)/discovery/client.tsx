@@ -384,21 +384,16 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
   }
 
   async function clearPool() {
-    const choice = confirm('Delete ALL strategies (including saved)?\n\nOK = Delete everything\nCancel = Keep saved strategies only');
-    const action = choice ? 'clear_all' : 'clear_pool';
+    if (!confirm('Clear the discovery pool? Your saved strategies will be kept.')) return;
 
     await fetch('/api/strategies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action: 'clear_pool' }),
     });
     cachedPrecomputed = null;
-    if (choice) {
-      setStrategies([]);
-    } else {
-      setStrategies(prev => prev.filter(s => s.saved));
-    }
-    setLastResult({ type: 'success', message: choice ? 'All strategies deleted. Run Discovery to start fresh.' : 'Pool cleared (saved strategies kept).', timestamp: new Date().toLocaleTimeString() });
+    setStrategies(prev => prev.filter(s => s.saved));
+    setLastResult({ type: 'success', message: 'Pool cleared (saved strategies kept). Run Discovery to generate new strategies.', timestamp: new Date().toLocaleTimeString() });
   }
 
   return (
