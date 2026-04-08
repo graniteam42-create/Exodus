@@ -5,6 +5,7 @@ import {
   isPresidentialCycleYear,
   isLastDaysOfQuarter,
   getReturnMonths,
+  resolveTicker,
 } from './helpers';
 
 const categoryL: RuleDefinition[] = [
@@ -50,7 +51,7 @@ const categoryL: RuleDefinition[] = [
       const janStart = `${year}-01-02`;
       const janEnd = `${year}-01-31`;
 
-      const prices = data.prices['SPY'];
+      const prices = data.prices[resolveTicker(data, 'SPY')];
       if (!prices || prices.length === 0) return false;
 
       // Find first trading day of January

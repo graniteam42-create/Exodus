@@ -8,7 +8,7 @@ const TICKER_MAP: Record<string, string> = {
 };
 
 /** Resolve a short ticker name (GLD) to the actual key in data.prices (GLD.US) */
-function resolveTicker(data: MarketData, ticker: string): string {
+export function resolveTicker(data: MarketData, ticker: string): string {
   if (data.prices[ticker]) return ticker;
   const mapped = TICKER_MAP[ticker];
   if (mapped && data.prices[mapped]) return mapped;

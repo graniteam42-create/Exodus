@@ -8,6 +8,7 @@ import {
   getCorrelation,
   getRecentFredRows,
   getDateIndex,
+  resolveTicker,
 } from './helpers';
 
 /** Helper: check if VIX has been below threshold for N+ consecutive trading days */
@@ -294,7 +295,7 @@ const categoryE: RuleDefinition[] = [
       // Check if 20-day vol has been below 10% for the last 20 trading days
       const idx = getDateIndex(data, 'QQQ', date);
       if (idx === null || idx < 40) return false;
-      const prices = data.prices['QQQ'];
+      const prices = data.prices[resolveTicker(data, 'QQQ')];
 
       for (let d = idx; d > idx - 20; d--) {
         // Compute 20-day realized vol at each point

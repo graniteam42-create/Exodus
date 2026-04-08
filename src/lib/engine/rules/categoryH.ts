@@ -6,6 +6,7 @@ import {
   getReturn,
   getReturnMonths,
   getDateIndex,
+  resolveTicker,
 } from './helpers';
 
 /** Compute the Gold/Silver price ratio */
@@ -159,7 +160,7 @@ const categoryH: RuleDefinition[] = [
       // Find 6-month high
       const idx = getDateIndex(data, 'UUP', date);
       if (current === null || idx === null || idx < 126) return false;
-      const prices = data.prices['UUP'];
+      const prices = data.prices[resolveTicker(data, 'UUP')];
       let high = -Infinity;
       for (let i = idx - 126; i <= idx; i++) {
         if (prices[i].adjusted_close > high) high = prices[i].adjusted_close;

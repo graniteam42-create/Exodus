@@ -556,7 +556,7 @@ export function testRuleNecessity(
  * Get all available trading dates from the market data, sorted ascending.
  */
 function getAllDates(data: MarketData): string[] {
-  const refTicker = data.prices['SPY'] ? 'SPY' : data.prices['GLD'] ? 'GLD' : Object.keys(data.prices)[0];
+  const refTicker = data.prices['SPY.US'] ? 'SPY.US' : data.prices['SPY'] ? 'SPY' : data.prices['GLD.US'] ? 'GLD.US' : data.prices['GLD'] ? 'GLD' : Object.keys(data.prices)[0];
   if (!refTicker || !data.prices[refTicker]) return [];
 
   return data.prices[refTicker]

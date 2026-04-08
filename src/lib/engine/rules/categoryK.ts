@@ -5,6 +5,7 @@ import {
   getFredYoY,
   getFredMaxOverMonths,
   getRecentFredRows,
+  resolveTicker,
 } from './helpers';
 
 /**
@@ -116,7 +117,7 @@ const categoryK: RuleDefinition[] = [
       // Find index at or before date
       let idx = rows.length - 1;
       while (idx >= 0 && rows[idx].date > date) idx--;
-      if (idx < 1) return false;
+      if (idx < 1 || idx < 0) return false;
 
       const current = rows[idx].value;
       const previous = rows[idx - 1].value;
@@ -159,7 +160,7 @@ const categoryK: RuleDefinition[] = [
     evaluate: (data: MarketData, date: string): boolean => {
       // Proxy: GLD volume increasing + price rising
       // Check if GLD price is rising and volume is above average
-      const prices = data.prices['GLD'];
+      const prices = data.prices[resolveTicker(data, 'GLD')];
       if (!prices || prices.length === 0) return false;
 
       let idx = prices.length - 1;

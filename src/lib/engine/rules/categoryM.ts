@@ -10,6 +10,7 @@ import {
   getRSI,
   getReturnMonths,
   getRecentFredRows,
+  resolveTicker,
 } from './helpers';
 
 const categoryM: RuleDefinition[] = [
@@ -165,14 +166,14 @@ const categoryM: RuleDefinition[] = [
 
       // Check drawdown from 52-week high
       const idx = (() => {
-        const prices = data.prices['QQQ'];
+        const prices = data.prices[resolveTicker(data, 'QQQ')];
         if (!prices) return null;
         let i = prices.length - 1;
         while (i >= 0 && prices[i].date > date) i--;
         return i;
       })();
       if (idx === null || idx < 252) return false;
-      const prices = data.prices['QQQ'];
+      const prices = data.prices[resolveTicker(data, 'QQQ')];
       let peak = -Infinity;
       for (let i = idx - 252; i <= idx; i++) {
         if (prices[i].adjusted_close > peak) peak = prices[i].adjusted_close;

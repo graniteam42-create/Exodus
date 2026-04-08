@@ -200,22 +200,22 @@ export const INDICATOR_CONFIGS: IndicatorConfig[] = [
     id: 'initial_claims', fred_series: 'ICSA', name: 'Initial Jobless Claims',
     category: 'labor', unit: 'K', range_min: 150, range_max: 600, frequency: 'weekly',
     interpret: (value, prev, data) => ({
-      valueSignal: value > 300000 ? 'bearish' : value < 200000 ? 'bullish' : 'neutral',
-      valueText: value > 300000 ? 'Elevated — significant layoffs' : value < 200000 ? 'Very low — strong labor market' : 'Normal range',
+      valueSignal: value > 300 ? 'bearish' : value < 200 ? 'bullish' : 'neutral',
+      valueText: value > 300 ? 'Elevated — significant layoffs' : value < 200 ? 'Very low — strong labor market' : 'Normal range',
       trendSignal: getTrendSignal(data, value, 1),
       trendText: getTrendText(data, 1),
-      status: value > 350000 ? 'elevated' : value > 250000 ? 'watch' : 'safe',
+      status: value > 350 ? 'elevated' : value > 250 ? 'watch' : 'safe',
     }),
   },
   {
     id: 'continuing_claims', fred_series: 'CCSA', name: 'Continuing Claims',
     category: 'labor', unit: 'K', range_min: 1000, range_max: 4000, frequency: 'weekly',
     interpret: (value) => ({
-      valueSignal: value > 2500000 ? 'bearish' : 'neutral',
-      valueText: value > 2500000 ? 'Elevated — people struggling to find new jobs' : 'Normal range',
+      valueSignal: value > 2500 ? 'bearish' : 'neutral',
+      valueText: value > 2500 ? 'Elevated — people struggling to find new jobs' : 'Normal range',
       trendSignal: 'neutral',
       trendText: 'Weekly update',
-      status: value > 2500000 ? 'watch' : 'safe',
+      status: value > 2500 ? 'watch' : 'safe',
     }),
   },
 
@@ -377,7 +377,7 @@ function getTrendSignal(data: FredRow[], currentValue: number, monthsBack: numbe
   if (Math.abs(diff) < threshold) return 'neutral';
   const rising = diff > 0;
   if (invertDirection) return rising ? 'bearish' : 'bullish';
-  return rising ? 'bearish' : 'bullish';
+  return rising ? 'bullish' : 'bearish';
 }
 
 function getTrendText(data: FredRow[], monthsBack: number): string {
