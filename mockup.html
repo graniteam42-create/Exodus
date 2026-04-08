@@ -1,0 +1,2694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EXODUS — Investment Timing</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: #0D1117;
+  color: #E6EDF3;
+  min-height: 100vh;
+  line-height: 1.5;
+}
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ===== COLORS ===== */
+:root {
+  --bg: #0D1117;
+  --card: #161B22;
+  --border: #30363D;
+  --green: #1A7A4A;
+  --green-light: #2EA96A;
+  --amber: #D4801A;
+  --orange: #C06020;
+  --red: #C0392B;
+  --blue: #2C5F82;
+  --blue-light: #3B82B8;
+  --text: #E6EDF3;
+  --text-muted: #8B949E;
+  --tooltip-bg: #1E2A38;
+  --yellow-green: #7CB342;
+}
+
+/* ===== SCREEN MANAGEMENT ===== */
+.screen { display: none !important; }
+.screen.active { display: block !important; }
+#passwordScreen.active { display: flex !important; }
+
+/* ===== PASSWORD PAGE ===== */
+#passwordScreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg);
+}
+.password-box {
+  text-align: center;
+  max-width: 360px;
+  width: 100%;
+  padding: 0 20px;
+}
+.password-box h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.password-box p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 32px;
+}
+.password-box input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 0.2em;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.password-box input:focus { border-color: var(--blue); }
+.password-box input::placeholder { color: var(--text-muted); letter-spacing: 0.05em; }
+.password-box button {
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px;
+  background: var(--blue);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.password-box button:hover { background: var(--blue-light); }
+
+/* ===== APP SHELL ===== */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.app-header .logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text);
+}
+.app-header .refresh-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.app-header .refresh-btn:hover { border-color: var(--blue); color: var(--text); }
+
+/* ===== TAB NAV ===== */
+.tab-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 49px;
+  z-index: 99;
+  overflow-x: auto;
+}
+.tab-nav button {
+  flex: 1;
+  min-width: 100px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-nav button:hover { color: var(--text); }
+.tab-nav button.active {
+  color: var(--text);
+  border-bottom-color: var(--blue);
+}
+
+/* ===== TAB CONTENT ===== */
+.tab-content { display: none; padding: 24px; max-width: 1100px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* ===== BADGES ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.badge-green { background: rgba(26,122,74,0.2); color: var(--green-light); }
+.badge-yellow-green { background: rgba(124,179,66,0.2); color: var(--yellow-green); }
+.badge-amber { background: rgba(212,128,26,0.2); color: var(--amber); }
+.badge-orange { background: rgba(192,96,32,0.2); color: var(--orange); }
+.badge-red { background: rgba(192,57,43,0.2); color: var(--red); }
+.badge-blue { background: rgba(44,95,130,0.2); color: var(--blue-light); }
+
+.badge-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.badge-green .badge-dot::before { background: var(--green-light); }
+.badge-blue .badge-dot::before { background: var(--blue-light); }
+.badge-amber .badge-dot::before { background: var(--amber); }
+.badge-red .badge-dot::before { background: var(--red); }
+
+/* ===== FRESHNESS ===== */
+.freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.freshness-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.fresh-live .freshness-dot { background: var(--green-light); }
+.fresh-live { color: var(--green-light); }
+.fresh-recent .freshness-dot { background: var(--blue-light); }
+.fresh-recent { color: var(--blue-light); }
+.fresh-lagged .freshness-dot { background: var(--amber); }
+.fresh-lagged { color: var(--amber); }
+.fresh-stale .freshness-dot { background: var(--red); }
+.fresh-stale { color: var(--red); }
+
+/* ===== DATA HEALTH BAR ===== */
+.data-health-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.78rem;
+}
+.data-health-bar .dh-date {
+  font-weight: 600;
+  color: var(--text);
+  margin-right: 4px;
+}
+.dh-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+}
+.dh-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.dh-ok .dh-dot { background: var(--green-light); }
+.dh-warn .dh-dot { background: var(--amber); }
+
+/* ===== ALLOCATION BAR ===== */
+.alloc-bar {
+  display: flex;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.alloc-bar > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  color: white;
+  transition: width 0.4s;
+}
+.alloc-gld { background: #B8860B; }
+.alloc-slv { background: #8A8A8A; }
+.alloc-qqq { background: #2C5F82; }
+.alloc-cash { background: #444C56; }
+
+.alloc-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.alloc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.alloc-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* ===== CURRENT POSITION ===== */
+.current-position-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: white;
+}
+.current-position-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ===== SIGNAL CHANGE BOX ===== */
+.signal-change {
+  background: rgba(212,128,26,0.08);
+  border: 1px solid rgba(212,128,26,0.3);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+.signal-change-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--amber);
+  margin-bottom: 6px;
+}
+.signal-change p { font-size: 0.82rem; color: var(--text-muted); }
+
+/* ===== REGIME PHASES ===== */
+.regime-phases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.regime-phase {
+  background: rgba(22,27,34,0.8);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.regime-phase.phase-active {
+  border-color: var(--amber);
+  background: rgba(212,128,26,0.06);
+}
+.regime-phase-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.regime-match {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.regime-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin-bottom: 10px;
+}
+.regime-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s;
+}
+.regime-indicators {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.regime-indicators .match { color: var(--green-light); }
+.regime-indicators .no-match { color: var(--text-muted); opacity: 0.5; }
+
+/* ===== TABLES ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th {
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(48,54,61,0.5);
+}
+tr:last-child td { border-bottom: none; }
+.signal-cell {
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+}
+.signal-gld { color: #D4A017; }
+.signal-slv { color: #B0B0B0; }
+.signal-qqq { color: var(--blue-light); }
+.signal-cash { color: var(--text-muted); }
+
+/* ===== TOOLTIP ===== */
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  cursor: help;
+  position: relative;
+  flex-shrink: 0;
+}
+.info-icon:hover .tooltip { display: block; }
+.tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--tooltip-bg);
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  max-width: 320px;
+  min-width: 200px;
+  z-index: 200;
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ===== COLLAPSIBLE ===== */
+.collapsible-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: color 0.2s;
+}
+.collapsible-trigger:hover { color: var(--text); }
+.collapsible-trigger .arrow { transition: transform 0.2s; font-size: 0.65rem; }
+.collapsible-trigger.open .arrow { transform: rotate(90deg); }
+.collapsible-body {
+  display: none;
+  padding: 12px 0 4px 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.collapsible-body.open { display: block; }
+
+/* ===== WHY X NOW ===== */
+.why-box {
+  background: rgba(13,17,23,0.5);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin: 12px 0;
+  line-height: 1.8;
+  font-size: 0.88rem;
+}
+.why-box strong { color: var(--text); }
+.why-driver {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.why-icon { flex-shrink: 0; margin-top: 2px; }
+
+/* ===== STRATEGY CARDS ===== */
+.strategy-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.strategy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.strategy-name {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.rule-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(48,54,61,0.3);
+}
+.rule-item:last-child { border-bottom: none; }
+.rule-status {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.rule-active { background: rgba(26,122,74,0.2); color: var(--green-light); }
+.rule-inactive { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.kpi-item {
+  text-align: center;
+  padding: 8px;
+  background: rgba(13,17,23,0.5);
+  border-radius: 6px;
+}
+.kpi-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.kpi-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* ===== DETAIL (shared by Discovery expand + Strategies cards) ===== */
+.detail-inner { padding: 20px 16px; background: rgba(13,17,23,0.4); }
+.detail-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.detail-signal-badge {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: white;
+  padding: 14px 18px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+.detail-kpis {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.detail-kpi { text-align: center; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
+.detail-grades {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.grade-box {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.grade-label {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+.grade-a { background: rgba(26,122,74,0.15); border: 1px solid rgba(26,122,74,0.4); color: var(--green-light); }
+.grade-b { background: rgba(212,128,26,0.15); border: 1px solid rgba(212,128,26,0.4); color: var(--amber); }
+.grade-c { background: rgba(192,96,32,0.15); border: 1px solid rgba(192,96,32,0.4); color: var(--orange); }
+.grade-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.grade-inline.grade-a { background: rgba(26,122,74,0.15); border: 1px solid rgba(26,122,74,0.4); color: var(--green-light); }
+.grade-inline.grade-b { background: rgba(212,128,26,0.15); border: 1px solid rgba(212,128,26,0.4); color: var(--amber); }
+.grade-inline.grade-c { background: rgba(192,96,32,0.15); border: 1px solid rgba(192,96,32,0.4); color: var(--orange); }
+
+.detail-assessment {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+.detail-context {
+  background: rgba(192,57,43,0.08);
+  border: 1px solid rgba(192,57,43,0.2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* ===== DISCOVERY ===== */
+.discovery-config {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.config-item label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.config-item select, .config-item input[type=range] {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+}
+.config-item input[type=range] {
+  padding: 0;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  cursor: pointer;
+  margin-top: 8px;
+}
+.config-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 6px;
+}
+.run-btn {
+  padding: 12px 32px;
+  background: var(--green);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.run-btn:hover { background: var(--green-light); }
+.progress-container {
+  background: var(--bg);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 16px 0;
+}
+.progress-bar {
+  height: 8px;
+  background: linear-gradient(90deg, var(--blue), var(--green-light));
+  border-radius: 6px;
+  width: 0%;
+  transition: width 0.5s;
+}
+
+/* ===== POOL TABLE ===== */
+.sp-filter {
+  padding: 5px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+}
+.sp-row { cursor: pointer; transition: background 0.15s; }
+.sp-row:hover { background: rgba(255,255,255,0.03); }
+.sp-row.expanded { background: rgba(44,95,130,0.08); }
+.sp-detail { display: none; }
+.sp-detail.open { display: table-row; }
+.sp-detail td { padding: 0; border-bottom: 1px solid var(--border); }
+
+/* Favorite heart */
+.fav-heart {
+  color: var(--border);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: color 0.15s;
+  user-select: none;
+  line-height: 1;
+}
+.fav-heart:hover { color: var(--red); }
+.fav-heart.fav-on { color: var(--red); }
+
+/* ===== UNSAVE BUTTON ===== */
+.unsave-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.unsave-btn:hover { border-color: var(--red); color: var(--red); }
+.unsave-btn .heart-icon { font-size: 0.9rem; }
+
+/* ===== INDICATOR CARDS (enhanced) ===== */
+.indicator-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.indicator-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+.indicator-card-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.indicator-card-series {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.indicator-card-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.indicator-signals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.indicator-signal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+}
+.indicator-signal-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  width: 48px;
+  flex-shrink: 0;
+}
+.indicator-signal-badge {
+  font-weight: 700;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+.indicator-signal-text {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.signal-bearish { background: rgba(192,57,43,0.08); border: 1px solid rgba(192,57,43,0.2); }
+.signal-bearish .indicator-signal-badge { color: var(--red); }
+.signal-bullish { background: rgba(26,122,74,0.08); border: 1px solid rgba(26,122,74,0.2); }
+.signal-bullish .indicator-signal-badge { color: var(--green-light); }
+.signal-neutral { background: rgba(139,148,158,0.06); border: 1px solid rgba(139,148,158,0.15); }
+.signal-neutral .indicator-signal-badge { color: var(--text-muted); }
+.signal-caution { background: rgba(212,128,26,0.08); border: 1px solid rgba(212,128,26,0.2); }
+.signal-caution .indicator-signal-badge { color: var(--amber); }
+.indicator-interpretation {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: rgba(13,17,23,0.5);
+  border-radius: 6px;
+  border-left: 3px solid var(--border);
+}
+.indicator-direction {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  margin-bottom: 10px;
+  display: none; /* hidden now, replaced by signal rows */
+}
+.dir-rising { color: var(--red); }
+.dir-falling { color: var(--green-light); }
+.dir-stable { color: var(--text-muted); }
+.dir-rising-good { color: var(--green-light); }
+.dir-falling-bad { color: var(--red); }
+.gradient-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--green-light), var(--amber), var(--red));
+  position: relative;
+  margin-bottom: 6px;
+}
+.gradient-bar-inverse {
+  background: linear-gradient(90deg, var(--red), var(--amber), var(--green-light));
+}
+.gradient-marker {
+  position: absolute;
+  top: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--bg);
+  transform: translateX(-50%);
+}
+.macro-range {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.indicator-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  align-items: center;
+}
+
+/* Indicator section headers */
+.indicator-section-header {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 28px 0 14px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.indicator-section-header:first-child { margin-top: 0; }
+
+.macro-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+/* ===== SECTION SPACING ===== */
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 24px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.section-title:first-child { margin-top: 0; }
+
+/* ===== FILTER BAR ===== */
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.filter-bar select, .filter-bar label {
+  font-size: 0.78rem;
+}
+.filter-bar select {
+  padding: 5px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+}
+.filter-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.filter-bar input[type=checkbox] {
+  accent-color: var(--blue-light);
+}
+
+/* ===== TABLE SCROLL ===== */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== RATING + ROBUSTNESS CELLS ===== */
+.score-cell {
+  text-align: center;
+  line-height: 1.3;
+}
+.score-grade {
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: block;
+}
+.score-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  display: block;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+  .tab-content { padding: 16px; }
+  .macro-grid { grid-template-columns: 1fr; }
+  .regime-phases { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .alloc-legend { gap: 10px; }
+  th, td { padding: 6px 8px; font-size: 0.75rem; }
+  .detail-top { flex-direction: column; }
+  .detail-kpis { gap: 12px; }
+  .detail-grades { align-self: flex-start; }
+  .data-health-bar { flex-direction: column; gap: 8px; }
+  .filter-bar { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== PASSWORD SCREEN ==================== -->
+<div id="passwordScreen" class="screen active">
+  <div class="password-box">
+    <h1>EXODUS</h1>
+    <p>Investment Timing Dashboard</p>
+    <input type="password" id="passwordInput" placeholder="Enter password" autofocus>
+    <button onclick="enterApp()">Enter</button>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP ==================== -->
+<div id="appScreen" class="screen">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="logo">EXODUS</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="refresh-btn" onclick="alert('Would fetch latest FRED + EODHD data')">Refresh Data</button>
+    </div>
+  </div>
+
+  <!-- Tab Navigation: Radar, Discovery, Strategies, Indicators -->
+  <div class="tab-nav">
+    <button class="active" onclick="switchTab('radar', this)">Radar</button>
+    <button onclick="switchTab('discovery', this)">Discovery</button>
+    <button onclick="switchTab('strategies', this)">Strategies</button>
+    <button onclick="switchTab('indicators', this)">Indicators</button>
+  </div>
+
+  <!-- ==================== TAB 1: RADAR ==================== -->
+  <div id="tab-radar" class="tab-content active">
+
+    <!-- Data Health Bar -->
+    <div class="data-health-bar">
+      <span class="dh-date">Data as of Apr 7, 2026</span>
+      <span class="dh-source dh-ok"><span class="dh-dot"></span> EODHD OK</span>
+      <span class="dh-source dh-ok"><span class="dh-dot"></span> FRED Daily OK</span>
+      <span class="dh-source dh-ok"><span class="dh-dot"></span> FRED Weekly OK</span>
+      <span class="dh-source dh-warn"><span class="dh-dot"></span> FRED Monthly Lagged</span>
+    </div>
+
+    <!-- Consensus Recommendation -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">Consensus Recommendation</div>
+
+      <!-- Current Position -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">Current Position</div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div class="current-position-badge" style="background:#B8860B;">GLD</div>
+          <div>
+            <div style="font-size:1rem;font-weight:600;color:var(--text);">Gold (GLD)</div>
+            <div class="current-position-meta">Based on top-rated strategy: <strong style="color:var(--text);">Yield Curve + Gold Trend</strong> (Rating A+ 97, Robustness A 96)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weighted Consensus -->
+      <div>
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">Weighted Consensus
+          <span class="info-icon" style="vertical-align:middle;margin-left:4px;">i
+            <span class="tooltip">Each saved strategy votes for an asset. Its vote weight = its Rating score (0-100). Higher-rated strategies have more influence. Calculation: Yield Curve (97) + Momentum (91) → GLD = 188/370 = 51%. Credit Stress (95) → Cash = 26%. Precious Metals (87) → SLV = 23%.</span>
+          </span>
+        </div>
+        <div class="alloc-bar">
+          <div class="alloc-gld" style="width:51%;">GLD 51%</div>
+          <div class="alloc-cash" style="width:26%;">Cash 26%</div>
+          <div class="alloc-slv" style="width:23%;">SLV 23%</div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;line-height:1.7;">
+          <span style="color:#D4A017;">&#9632;</span> GLD 51% &larr; Yield Curve + Gold Trend <span class="mono">(97)</span> + Momentum + Vol Regime <span class="mono">(91)</span><br>
+          <span style="color:#444C56;">&#9632;</span> Cash 26% &larr; Credit Stress Defensive <span class="mono">(95)</span><br>
+          <span style="color:#8A8A8A;">&#9632;</span> SLV 23% &larr; Precious Metals Bull <span class="mono">(87)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Signal Change Alert -->
+    <div class="signal-change">
+      <div class="signal-change-header">
+        <span>&#9888;</span> Signal Change Tomorrow
+      </div>
+      <p>Transitioning from <strong class="mono" style="color:var(--blue-light);">QQQ</strong> to <strong class="mono" style="color:#D4A017;">GLD</strong> based on <strong style="color:var(--text);">3 of 4</strong> saved strategies. The Dual Momentum Antonacci strategy still favors QQQ but is outvoted. New allocation takes effect at tomorrow's close.</p>
+    </div>
+
+    <!-- Why X Now -->
+    <div class="card">
+      <div class="card-title">Why Gold &amp; Cash Now</div>
+      <div class="why-box">
+        <div class="why-driver">
+          <span class="why-icon" style="color:var(--amber);">&#9650;</span>
+          <span><strong>Yield curve re-inverted</strong> -- 10Y-2Y spread at <span class="mono">-0.18%</span>, signaling renewed recession risk. Historically, dis-inversions that re-invert are the most dangerous pattern.</span>
+        </div>
+        <div class="why-driver">
+          <span class="why-icon" style="color:var(--red);">&#9650;</span>
+          <span><strong>HY spreads widening</strong> -- ICE BofA HY OAS at <span class="mono">482bp</span>, up from 340bp three months ago. Credit stress building but not yet at crisis levels.</span>
+        </div>
+        <div class="why-driver">
+          <span class="why-icon" style="color:var(--green-light);">&#9650;</span>
+          <span><strong>Gold above 200-day SMA</strong> -- GLD at <span class="mono">$247.30</span> vs SMA200 of <span class="mono">$228.15</span>. Uptrend intact with strong 12-month momentum (+18.2%).</span>
+        </div>
+        <div class="why-driver">
+          <span class="why-icon" style="color:var(--text-muted);">&#9660;</span>
+          <span><strong style="color:var(--text-muted);">Offsetting:</strong> VIX at <span class="mono">19.4</span> -- elevated but not panicking. QQQ still above SMA200 by a thin margin. Not a full crisis signal yet.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indicator Alerts -->
+    <div class="card">
+      <div class="card-title">Indicator Alerts</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(192,57,43,0.06);border:1px solid rgba(192,57,43,0.15);border-radius:6px;cursor:pointer;" onclick="switchTab('indicators',document.querySelectorAll('.tab-nav button')[3])">
+          <span style="color:var(--red);font-size:1rem;">&#9650;</span>
+          <div style="flex:1;">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--text);">HY Credit Spread surging +142bp in 3 months</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);">BAMLH0A0HYM2 at 482bp &mdash; approaching 500bp stress threshold. Last time spreads rose this fast: Sep 2022.</div>
+          </div>
+          <span style="font-size:0.72rem;color:var(--text-muted);">View &rarr;</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(212,128,26,0.06);border:1px solid rgba(212,128,26,0.15);border-radius:6px;cursor:pointer;" onclick="switchTab('indicators',document.querySelectorAll('.tab-nav button')[3])">
+          <span style="color:var(--amber);font-size:1rem;">&#9650;</span>
+          <div style="flex:1;">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--text);">Sahm Rule approaching trigger at 0.37</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);">SAHMREALTIME rising toward 0.50 threshold. Has never breached 0.50 without a recession following.</div>
+          </div>
+          <span style="font-size:0.72rem;color:var(--text-muted);">View &rarr;</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(212,128,26,0.06);border:1px solid rgba(212,128,26,0.15);border-radius:6px;cursor:pointer;" onclick="switchTab('indicators',document.querySelectorAll('.tab-nav button')[3])">
+          <span style="color:var(--amber);font-size:1rem;">&#9660;</span>
+          <div style="flex:1;">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--text);">Yield curve re-inverted after brief dis-inversion</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);">T10Y2Y back to -0.18%. Dis-inversions that re-invert are historically the most dangerous pattern.</div>
+          </div>
+          <span style="font-size:0.72rem;color:var(--text-muted);">View &rarr;</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Regime Assessment -->
+    <div class="card">
+      <div class="card-title">Regime Assessment -- Market Weather</div>
+      <div class="regime-phases">
+        <div class="regime-phase">
+          <div class="regime-phase-name" style="color:var(--text-muted);">Phase 0: Late Cycle</div>
+          <div class="regime-match mono" style="color:var(--text-muted);">25%</div>
+          <div class="regime-bar"><div class="regime-bar-fill" style="width:25%;background:var(--text-muted);"></div></div>
+          <div class="regime-indicators">
+            <span class="no-match">&#10007; VIX < 15</span><br>
+            <span class="match">&#10003; Tight credit spreads</span><br>
+            <span class="no-match">&#10007; Yield curve flattening</span><br>
+            <span class="no-match">&#10007; Gold starting outperform</span>
+          </div>
+        </div>
+        <div class="regime-phase phase-active">
+          <div class="regime-phase-name" style="color:var(--amber);">Phase 1: Warning Signs</div>
+          <div class="regime-match mono" style="color:var(--amber);">75%</div>
+          <div class="regime-bar"><div class="regime-bar-fill" style="width:75%;background:var(--amber);"></div></div>
+          <div class="regime-indicators">
+            <span class="match">&#10003; Yield curve inverted</span><br>
+            <span class="match">&#10003; Credit spreads widening</span><br>
+            <span class="match">&#10003; Unemployment ticking up</span><br>
+            <span class="no-match">&#10007; VIX > 20 sustained</span>
+          </div>
+        </div>
+        <div class="regime-phase">
+          <div class="regime-phase-name" style="color:var(--text-muted);">Phase 2: Acute Crisis</div>
+          <div class="regime-match mono" style="color:var(--text-muted);">10%</div>
+          <div class="regime-bar"><div class="regime-bar-fill" style="width:10%;background:var(--text-muted);"></div></div>
+          <div class="regime-indicators">
+            <span class="no-match">&#10007; VIX > 30</span><br>
+            <span class="no-match">&#10007; HY spreads > 5%</span><br>
+            <span class="no-match">&#10007; Unemployment surging</span><br>
+            <span class="no-match">&#10007; Fed emergency cutting</span>
+          </div>
+        </div>
+        <div class="regime-phase">
+          <div class="regime-phase-name" style="color:var(--text-muted);">Phase 3-4: Recovery</div>
+          <div class="regime-match mono" style="color:var(--text-muted);">5%</div>
+          <div class="regime-bar"><div class="regime-bar-fill" style="width:5%;background:var(--text-muted);"></div></div>
+          <div class="regime-indicators">
+            <span class="no-match">&#10007; VIX declining from peak</span><br>
+            <span class="no-match">&#10007; Fed aggressively easing</span><br>
+            <span class="no-match">&#10007; Assets deeply oversold</span><br>
+            <span class="no-match">&#10007; Unemployment declining</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strategy Agreement -->
+    <div class="card">
+      <div class="card-title">Strategy Agreement</div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">
+        <span class="mono" style="color:var(--text);font-weight:600;">74%</span> weighted agreement with consensus (GLD).
+        <span style="font-size:0.75rem;color:var(--text-muted);margin-left:4px;">Weight = Rating score. Strategies voting GLD: 97+91 = 188 of 370 total.</span>
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Strategy</th><th>Signal</th><th>Rating</th><th>Weight</th><th>Agrees w/ GLD</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Yield Curve + Gold Trend</td>
+              <td class="signal-cell signal-gld">GLD</td>
+              <td><span class="mono" style="color:var(--green-light);font-weight:600;">A+ (97)</span></td>
+              <td class="mono">26%</td>
+              <td style="color:var(--green-light);font-weight:600;">&#10003; Yes</td>
+            </tr>
+            <tr>
+              <td>Momentum + Vol Regime</td>
+              <td class="signal-cell signal-gld">GLD</td>
+              <td><span class="mono" style="color:var(--green-light);font-weight:600;">A- (91)</span></td>
+              <td class="mono">25%</td>
+              <td style="color:var(--green-light);font-weight:600;">&#10003; Yes</td>
+            </tr>
+            <tr style="background:rgba(192,57,43,0.06);">
+              <td>Credit Stress Defensive <span class="badge badge-red" style="margin-left:6px;font-size:0.6rem;">Diverges</span></td>
+              <td class="signal-cell signal-cash">Cash</td>
+              <td><span class="mono" style="color:var(--green-light);font-weight:600;">A (95)</span></td>
+              <td class="mono">26%</td>
+              <td style="color:var(--red);font-weight:600;">&#10007; No &mdash; Cash</td>
+            </tr>
+            <tr>
+              <td>Precious Metals Bull</td>
+              <td class="signal-cell signal-slv">SLV</td>
+              <td><span class="mono" style="color:var(--amber);font-weight:600;">B+ (87)</span></td>
+              <td class="mono">23%</td>
+              <td style="color:var(--amber);">~ Partial &mdash; SLV (precious metals)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;padding:10px 14px;background:rgba(192,57,43,0.06);border:1px solid rgba(192,57,43,0.2);border-radius:6px;font-size:0.8rem;color:var(--text-muted);">
+        <strong style="color:var(--red);">&#9888; Divergence warning:</strong> Credit Stress Defensive (Rating A, 95) disagrees with consensus. This is a high-rated strategy — its Cash signal reflects credit spread deterioration that other strategies don't weight. Consider the 26% Cash allocation seriously.
+      </div>
+    </div>
+
+    <!-- How to read this -->
+    <button class="collapsible-trigger" onclick="toggleCollapse(this)">
+      <span class="arrow">&#9654;</span> How to Read This Dashboard
+    </button>
+    <div class="collapsible-body">
+      <p><strong>Current Position</strong> shows what you should be invested in NOW, based on your top-rated saved strategy. The <strong>Weighted Consensus</strong> shows the allocation across all saved strategies, where each strategy's vote is weighted by its Rating score (higher-rated = more influence).</p>
+      <p style="margin-top:8px;"><strong>Signal Change Alert</strong> only appears when a transition is imminent (tomorrow) or in progress. If you don't see it, no change is expected.</p>
+      <p style="margin-top:8px;"><strong>Regime Assessment</strong> is NOT a trading signal. It's a "weather forecast" -- it scores current conditions against historical crisis patterns to give you context for the strategy signals.</p>
+      <p style="margin-top:8px;"><strong>Strategy Agreement</strong> shows whether your saved strategies agree on direction. Higher agreement = higher conviction.</p>
+    </div>
+
+  </div>
+
+  <!-- ==================== TAB 2: DISCOVERY ==================== -->
+  <div id="tab-discovery" class="tab-content">
+
+    <!-- Generation Config -->
+    <div class="card">
+      <div class="card-title">Strategy Generation</div>
+      <div class="discovery-config">
+        <div class="config-item">
+          <label>Max Rules per Strategy</label>
+          <input type="range" id="rulesSlider" min="2" max="6" value="5" oninput="document.getElementById('rulesVal').textContent=this.value">
+          <div class="config-value" id="rulesVal">5</div>
+        </div>
+        <div class="config-item">
+          <label>Max Strategies</label>
+          <input type="range" id="maxStrats" min="50" max="500" value="500" step="50" oninput="document.getElementById('maxStratsVal').textContent=this.value">
+          <div class="config-value" id="maxStratsVal">500</div>
+        </div>
+        <div class="config-item" style="display:flex;align-items:flex-end;">
+          <button class="run-btn" onclick="runDiscovery()" id="runBtn">Run Discovery</button>
+        </div>
+      </div>
+      <div class="progress-container" id="progressContainer" style="display:none;">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div id="progressText" style="font-size:0.78rem;color:var(--text-muted);display:none;margin-top:4px;"></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <select id="filterSignal" onchange="applyFilters()">
+        <option value="all">Signal: All</option>
+        <option value="GLD">GLD</option>
+        <option value="SLV">SLV</option>
+        <option value="QQQ">QQQ</option>
+        <option value="Cash">Cash</option>
+      </select>
+      <select id="filterRating" onchange="applyFilters()">
+        <option value="any">Min Rating: Any</option>
+        <option value="A+">A+</option>
+        <option value="A">A</option>
+        <option value="B+">B+</option>
+        <option value="B">B</option>
+      </select>
+      <select id="filterSharpe" onchange="applyFilters()">
+        <option value="any">Min Sharpe: Any</option>
+        <option value="1.5">> 1.5</option>
+        <option value="1.0">> 1.0</option>
+        <option value="0.7">> 0.7</option>
+      </select>
+      <select id="filterDD" onchange="applyFilters()">
+        <option value="any">Max Drawdown: Any</option>
+        <option value="10">< 10%</option>
+        <option value="15">< 15%</option>
+        <option value="20">< 20%</option>
+        <option value="30">< 30%</option>
+      </select>
+    </div>
+
+    <!-- Pool freshness -->
+    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:12px;">Pool based on data through Apr 7, 2026 &middot; <span class="mono" style="color:var(--text);">12</span> strategies</div>
+
+    <!-- Strategy Pool Table -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="table-scroll">
+        <table id="poolTable">
+          <thead>
+            <tr>
+              <th style="width:36px;"></th>
+              <th>Name</th>
+              <th>Signal</th>
+              <th>Rating</th>
+              <th>Robust</th>
+              <th>CAGR</th>
+              <th>Sharpe</th>
+              <th>Max DD</th>
+              <th>Profit F.</th>
+              <th>Trades/yr</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 1. Yield Curve + Gold Trend (SAVED) -->
+            <tr class="sp-row" onclick="toggleDetail('dp1',this)" data-saved="1" data-signal="GLD" data-rating="97" data-sharpe="1.12" data-dd="14.2">
+              <td><span class="fav-heart fav-on" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Yield Curve + Gold Trend</td>
+              <td><span class="signal-cell signal-gld">GLD</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--green-light);">A+</span><span class="score-num">97</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--green-light);">A</span><span class="score-num">96</span></td>
+              <td class="mono" style="color:var(--green-light);">+11.4%</td>
+              <td class="mono">1.12</td>
+              <td class="mono" style="color:var(--red);">-14.2%</td>
+              <td class="mono">1.84</td>
+              <td class="mono">4.2</td>
+            </tr>
+            <tr class="sp-detail" id="dp1"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#B8860B;">GLD</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+11.4%</div><div>CAGR<br><span style="color:var(--green-light);">A+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.12</div><div>Sharpe<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-14.2%</div><div>Max DD<br><span style="color:var(--amber);">B+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.84</div><div>Profit F.<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">4.2</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-a">A+<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-a">A<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Strong strategy combining macro (yield curve inversion) with technical confirmation (gold trend + momentum). Performs well in both deflationary crises (2008, 2020) and inflationary stress (2022). Modest drawdowns, good consistency across periods.</p>
+
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>A1:</strong> Yield curve inverted (10Y-2Y &lt; 0) -- <span class="mono" style="color:var(--amber);">-0.18%</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F1:</strong> GLD above 200-day SMA -- <span class="mono" style="color:var(--green-light);">$247 vs $228</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F10:</strong> GLD 12-month momentum positive -- <span class="mono" style="color:var(--green-light);">+18.2%</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>E2:</strong> VIX between 20-30 -- <span class="mono" style="color:var(--text-muted);">19.4</span></span></div>
+                </div>
+
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body">
+                  <div style="margin-bottom:8px;"><strong>Robustness: </strong><span class="grade-inline grade-a">A</span> <span class="mono" style="margin-left:6px;">CPCV 26/28</span> &middot; <span class="mono">DSR 0.97</span> &middot; <span class="mono">PBO 0.08</span> &middot; Sensitivity: Pass</div>
+                  <table>
+                    <thead><tr><th>Period</th><th>Strategy</th><th>GLD</th><th>QQQ</th><th>Sharpe</th><th>Max DD</th></tr></thead>
+                    <tbody>
+                      <tr><td>2008-2010</td><td class="mono" style="color:var(--green-light);">+24.3%</td><td class="mono" style="color:var(--green-light);">+36.2%</td><td class="mono" style="color:var(--red);">-32.1%</td><td class="mono">2.41</td><td class="mono" style="color:var(--red);">-8.1%</td></tr>
+                      <tr><td>2014-2016</td><td class="mono" style="color:var(--green-light);">+6.9%</td><td class="mono" style="color:var(--green-light);">+4.1%</td><td class="mono" style="color:var(--green-light);">+11.2%</td><td class="mono">0.81</td><td class="mono" style="color:var(--red);">-7.8%</td></tr>
+                      <tr><td>2018-2020</td><td class="mono" style="color:var(--green-light);">+18.7%</td><td class="mono" style="color:var(--green-light);">+31.4%</td><td class="mono" style="color:var(--green-light);">+9.8%</td><td class="mono">1.78</td><td class="mono" style="color:var(--red);">-11.2%</td></tr>
+                      <tr><td>2022-2024</td><td class="mono" style="color:var(--green-light);">+6.4%</td><td class="mono" style="color:var(--green-light);">+14.8%</td><td class="mono" style="color:var(--green-light);">+22.1%</td><td class="mono">0.92</td><td class="mono" style="color:var(--red);">-3.8%</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (68 trades)</button>
+                <div class="collapsible-body">
+                  <table>
+                    <thead><tr><th>From</th><th>To</th><th>Holding</th><th>Days</th><th>Return</th><th>Good Call?</th></tr></thead>
+                    <tbody>
+                      <tr><td class="mono">2025-02-15</td><td class="mono">2025-04-02</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">32</td><td class="mono" style="color:var(--green-light);">+6.8%</td><td style="color:var(--green-light);">YES</td></tr>
+                      <tr><td class="mono">2025-04-03</td><td class="mono">2025-06-11</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">48</td><td class="mono" style="color:var(--green-light);">+3.1%</td><td style="color:var(--red);">NO</td></tr>
+                      <tr><td class="mono">2025-06-12</td><td class="mono">2025-08-20</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">49</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+                      <tr><td class="mono">2025-08-21</td><td class="mono">present</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">...</td><td class="mono" style="color:var(--green-light);">+9.4%</td><td style="color:var(--green-light);">YES</td></tr>
+                    </tbody>
+                  </table>
+                  <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Showing last 4 trades. Total: 68 trades, 42 good calls (62%).</div>
+                </div>
+
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Live Track Record</button>
+                <div class="collapsible-body">
+                  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+                    <div style="font-size:0.78rem;color:var(--text-muted);">Saved: <strong class="mono" style="color:var(--text);">Mar 28, 2026</strong></div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);">Live days: <strong class="mono" style="color:var(--text);">8 trading days</strong></div>
+                    <div style="font-size:0.78rem;"><span class="badge badge-amber">Preliminary</span></div>
+                  </div>
+                  <table>
+                    <thead><tr><th>Since saved</th><th>Strategy</th><th>GLD</th><th>SLV</th><th>QQQ</th><th>Cash</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td>Mar 28 &rarr; Apr 7</td>
+                        <td class="mono" style="color:var(--green-light);font-weight:600;">+2.8%</td>
+                        <td class="mono" style="color:var(--green-light);">+2.8%</td>
+                        <td class="mono" style="color:var(--green-light);">+1.4%</td>
+                        <td class="mono" style="color:var(--red);">-3.2%</td>
+                        <td class="mono">0.0%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Too early to draw conclusions — 8 trading days is noise. Meaningful after 90+ days. Live trades: 0 (holding GLD since save date).</div>
+                </div>
+              </div>
+            </td></tr>
+
+            <!-- 2. Credit Stress Defensive (SAVED) -->
+            <tr class="sp-row" onclick="toggleDetail('dp2',this)" data-saved="1" data-signal="Cash" data-rating="94" data-sharpe="1.34" data-dd="6.1">
+              <td><span class="fav-heart fav-on" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Credit Stress Defensive</td>
+              <td><span class="signal-cell signal-cash">Cash</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--green-light);">A</span><span class="score-num">95</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--green-light);">A+</span><span class="score-num">97</span></td>
+              <td class="mono" style="color:var(--green-light);">+8.7%</td>
+              <td class="mono">1.34</td>
+              <td class="mono" style="color:var(--green-light);">-6.1%</td>
+              <td class="mono">2.12</td>
+              <td class="mono">2.8</td>
+            </tr>
+            <tr class="sp-detail" id="dp2"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#444C56;">Cash</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+8.7%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.34</div><div>Sharpe<br><span style="color:var(--green-light);">A+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">-6.1%</div><div>Max DD<br><span style="color:var(--green-light);">A+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.12</div><div>Profit F.<br><span style="color:var(--green-light);">A+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.8</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-a">A+<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-a">A<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Pure defensive strategy. Moves to cash when credit markets deteriorate. Lowest drawdowns in the pool, highest Sharpe. Best in sharp crises (2008, 2020). Underperforms in slow grinds.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>B1:</strong> HY spreads > 400bp -- <span class="mono" style="color:var(--amber);">482bp</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>B9:</strong> Credit spread acceleration > 20%/1mo -- <span class="mono" style="color:var(--red);">+28%</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>B11:</strong> Bank lending tightening > 30% -- <span class="mono" style="color:var(--text-muted);">22%</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body">
+                  <div style="margin-bottom:8px;"><strong>Robustness: </strong><span class="grade-inline grade-a">A</span> <span class="mono" style="margin-left:6px;">CPCV 25/28</span> &middot; <span class="mono">DSR 0.96</span> &middot; <span class="mono">PBO 0.10</span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (52 trades)</button>
+                <div class="collapsible-body">
+                  <table>
+                    <thead><tr><th>From</th><th>To</th><th>Holding</th><th>Days</th><th>Return</th><th>Good Call?</th></tr></thead>
+                    <tbody>
+                      <tr><td class="mono">2025-01-20</td><td class="mono">2025-04-05</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">54</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+                      <tr><td class="mono">2025-04-06</td><td class="mono">present</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">...</td><td class="mono">0.0%</td><td style="color:var(--text-muted);">--</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </td></tr>
+
+            <!-- 3. Momentum + Vol Regime (SAVED) -->
+            <tr class="sp-row" onclick="toggleDetail('dp3',this)" data-saved="1" data-signal="GLD" data-rating="88" data-sharpe="0.98" data-dd="16.8">
+              <td><span class="fav-heart fav-on" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Momentum + Vol Regime</td>
+              <td><span class="signal-cell signal-gld">GLD</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--green-light);">A-</span><span class="score-num">91</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B</span><span class="score-num">85</span></td>
+              <td class="mono" style="color:var(--green-light);">+10.2%</td>
+              <td class="mono">0.98</td>
+              <td class="mono" style="color:var(--red);">-16.8%</td>
+              <td class="mono">1.62</td>
+              <td class="mono">5.1</td>
+            </tr>
+            <tr class="sp-detail" id="dp3"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#B8860B;">GLD</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+10.2%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.98</div><div>Sharpe<br><span style="color:var(--amber);">B+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-16.8%</div><div>Max DD<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.62</div><div>Profit F.<br><span style="color:var(--amber);">B+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">5.1</div><div>Trades/yr<br><span style="color:var(--amber);">B</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-a" style="font-size:1.2rem;">A-<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-a">A<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Follows relative momentum between gold and equities, confirmed by volatility regime shift. More trades, works best in trending markets.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F14:</strong> Dual momentum GLD vs QQQ -- <span class="mono" style="color:var(--green-light);">GLD +18.2% vs QQQ +7.1%</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>E11:</strong> VIX 20d avg > 50d avg -- <span class="mono" style="color:var(--amber);">18.1 vs 15.3</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F19:</strong> Vol-adjusted momentum GLD > 1.0 -- <span class="mono" style="color:var(--green-light);">1.24</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div style="margin-bottom:8px;"><strong>Robustness: </strong><span class="grade-inline grade-a">A</span> <span class="mono" style="margin-left:6px;">CPCV 24/28</span> &middot; <span class="mono">DSR 0.93</span> &middot; <span class="mono">PBO 0.14</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (81 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">81 trades total, 47 good calls (58%). Higher frequency but solid risk-adjusted.</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 4. Precious Metals Bull (SAVED) -->
+            <tr class="sp-row" onclick="toggleDetail('dp4',this)" data-saved="1" data-signal="SLV" data-rating="82" data-sharpe="0.82" data-dd="28.1">
+              <td><span class="fav-heart fav-on" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Precious Metals Bull</td>
+              <td><span class="signal-cell signal-slv">SLV</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B+</span><span class="score-num">87</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B-</span><span class="score-num">82</span></td>
+              <td class="mono" style="color:var(--green-light);">+13.6%</td>
+              <td class="mono">0.82</td>
+              <td class="mono" style="color:var(--red);">-28.1%</td>
+              <td class="mono">1.48</td>
+              <td class="mono">3.1</td>
+            </tr>
+            <tr class="sp-detail" id="dp4"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#8A8A8A;">SLV</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+13.6%</div><div>CAGR<br><span style="color:var(--green-light);">A+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.82</div><div>Sharpe<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-28.1%</div><div>Max DD<br><span style="color:var(--orange);">C+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.48</div><div>Profit F.<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">3.1</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-b">B+<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B+<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Silver when gold/silver ratio elevated and both metals trending up. Highest CAGR but largest drawdown. Silver's beta makes this volatile.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>H1:</strong> Gold/Silver ratio > 80 -- <span class="mono" style="color:var(--amber);">83.2</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>H13:</strong> GLD and SLV both above SMA50 -- <span class="mono" style="color:var(--green-light);">confirmed</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F5:</strong> SLV above 200-day SMA -- <span class="mono" style="color:var(--green-light);">$29.80 vs $26.40</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div style="margin-bottom:8px;"><strong>Robustness: </strong><span class="grade-inline grade-b">B+</span> <span class="mono" style="margin-left:6px;">CPCV 21/28</span> &middot; <span class="mono">DSR 0.90</span> &middot; <span class="mono">PBO 0.18</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (48 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">48 trades total, 26 good calls (54%). Big winners compensate for low hit rate.</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 5. Dual Momentum Antonacci (NOT saved) -->
+            <tr class="sp-row" onclick="toggleDetail('dp5',this)" data-saved="0" data-signal="QQQ" data-rating="80" data-sharpe="0.87" data-dd="22.4">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Dual Momentum Antonacci</td>
+              <td><span class="signal-cell signal-qqq">QQQ</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B</span><span class="score-num">85</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B-</span><span class="score-num">80</span></td>
+              <td class="mono" style="color:var(--green-light);">+12.8%</td>
+              <td class="mono">0.87</td>
+              <td class="mono" style="color:var(--red);">-22.4%</td>
+              <td class="mono">1.54</td>
+              <td class="mono">3.6</td>
+            </tr>
+            <tr class="sp-detail" id="dp5"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:var(--blue);">QQQ</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+12.8%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.87</div><div>Sharpe<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-22.4%</div><div>Max DD<br><span style="color:var(--orange);">C+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.54</div><div>Profit F.<br><span style="color:var(--amber);">B+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">3.6</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-b">B+<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Classic Antonacci dual momentum. High CAGR but larger drawdowns. Currently diverges from consensus -- sees QQQ as the best risk-adjusted asset. Warning: thin margin, QQQ only +7.1% trailing 12mo.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F14:</strong> 12-month absolute momentum QQQ > 0 -- <span class="mono" style="color:var(--green-light);">+7.1%</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F15:</strong> QQQ relative momentum vs bonds -- <span class="mono" style="color:var(--green-light);">QQQ +7.1% vs AGG +2.3%</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-b">B</span> <span class="mono" style="margin-left:6px;">CPCV 22/28</span> &middot; <span class="mono">DSR 0.91</span> &middot; <span class="mono">PBO 0.16</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (58 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">58 trades total, 32 good calls (55%).</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 6. Stagflation Hedge -->
+            <tr class="sp-row" onclick="toggleDetail('dp6',this)" data-saved="0" data-signal="GLD" data-rating="78" data-sharpe="0.94" data-dd="12.6">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Stagflation Hedge</td>
+              <td><span class="signal-cell signal-gld">GLD</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B</span><span class="score-num">84</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B+</span><span class="score-num">88</span></td>
+              <td class="mono" style="color:var(--green-light);">+9.1%</td>
+              <td class="mono">0.94</td>
+              <td class="mono" style="color:var(--red);">-12.6%</td>
+              <td class="mono">1.71</td>
+              <td class="mono">3.4</td>
+            </tr>
+            <tr class="sp-detail" id="dp6"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#B8860B;">GLD</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+9.1%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.94</div><div>Sharpe<br><span style="color:var(--green-light);">A-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-12.6%</div><div>Max DD<br><span style="color:var(--amber);">B+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.71</div><div>Profit F.<br><span style="color:var(--green-light);">A-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">3.4</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-b">B+<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Targets gold when CPI is elevated and unemployment is rising. Classic stagflation trade. Limited historical occurrences but strong thesis. Performed exceptionally in 2022.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>C1:</strong> CPI YoY > 3% -- <span class="mono" style="color:var(--amber);">3.2%</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>D1:</strong> Unemployment rising (3mo delta > 0.2pp) -- <span class="mono" style="color:var(--amber);">+0.4pp</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F1:</strong> GLD above 200-day SMA -- <span class="mono" style="color:var(--green-light);">confirmed</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-b">B</span> <span class="mono" style="margin-left:6px;">CPCV 20/28</span> &middot; <span class="mono">DSR 0.92</span> &middot; <span class="mono">PBO 0.17</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (42 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">42 trades total, 25 good calls (60%).</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 7. Fed Pivot Recovery -->
+            <tr class="sp-row" onclick="toggleDetail('dp7',this)" data-saved="0" data-signal="Cash" data-rating="74" data-sharpe="0.91" data-dd="18.3">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Fed Pivot Recovery</td>
+              <td><span class="signal-cell signal-cash">Cash</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--amber);">B-</span><span class="score-num">82</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--green-light);">A-</span><span class="score-num">91</span></td>
+              <td class="mono" style="color:var(--green-light);">+10.8%</td>
+              <td class="mono">0.91</td>
+              <td class="mono" style="color:var(--red);">-18.3%</td>
+              <td class="mono">1.58</td>
+              <td class="mono">2.4</td>
+            </tr>
+            <tr class="sp-detail" id="dp7"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#444C56;">Cash</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+10.8%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.91</div><div>Sharpe<br><span style="color:var(--green-light);">A-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-18.3%</div><div>Max DD<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.58</div><div>Profit F.<br><span style="color:var(--amber);">B+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.4</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-b">B<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-a">A<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Waits in cash during hiking cycles, enters QQQ when Fed pivots to cutting with VIX calming. Currently Cash because Fed on hold at 4.75%. Few trades per year but captures major regime shifts.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>G1:</strong> Fed cutting (rate change &lt; 0) -- <span class="mono" style="color:var(--text-muted);">On hold</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>E3:</strong> VIX &lt; 18 (calm) -- <span class="mono" style="color:var(--text-muted);">19.4</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-a">A</span> <span class="mono" style="margin-left:6px;">CPCV 24/28</span> &middot; <span class="mono">DSR 0.91</span> &middot; <span class="mono">PBO 0.12</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (34 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">34 trades total, 19 good calls (56%).</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 8. Liquidity Tracker -->
+            <tr class="sp-row" onclick="toggleDetail('dp8',this)" data-saved="0" data-signal="Cash" data-rating="68" data-sharpe="0.88" data-dd="11.4">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Liquidity Tracker</td>
+              <td><span class="signal-cell signal-cash">Cash</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C+</span><span class="score-num">79</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C+</span><span class="score-num">77</span></td>
+              <td class="mono" style="color:var(--green-light);">+7.4%</td>
+              <td class="mono">0.88</td>
+              <td class="mono" style="color:var(--red);">-11.4%</td>
+              <td class="mono">1.52</td>
+              <td class="mono">3.8</td>
+            </tr>
+            <tr class="sp-detail" id="dp8"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#444C56;">Cash</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+7.4%</div><div>CAGR<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.88</div><div>Sharpe<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-11.4%</div><div>Max DD<br><span style="color:var(--amber);">B+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.52</div><div>Profit F.<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">3.8</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-b" style="font-size:1.2rem;">B-<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Follows Fed balance sheet and reverse repo levels. Risk-on when liquidity expanding, defensive when draining. Currently Cash due to ongoing QT. Robustness B -- weaker statistical confidence.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>G5:</strong> Fed balance sheet expanding -- <span class="mono" style="color:var(--text-muted);">Contracting (QT)</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>G6:</strong> Reverse repo declining -- <span class="mono" style="color:var(--green-light);">$142B (from $2.2T)</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-b">B</span> <span class="mono" style="margin-left:6px;">CPCV 19/28</span> &middot; <span class="mono">DSR 0.84</span> &middot; <span class="mono">PBO 0.22</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (59 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">59 trades total, 37 good calls (63%).</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 9. Dollar Weakness Gold -->
+            <tr class="sp-row" onclick="toggleDetail('dp9',this)" data-saved="0" data-signal="GLD" data-rating="64" data-sharpe="0.79" data-dd="15.3">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Dollar Weakness Gold</td>
+              <td><span class="signal-cell signal-gld">GLD</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C+</span><span class="score-num">77</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C</span><span class="score-num">74</span></td>
+              <td class="mono" style="color:var(--green-light);">+8.2%</td>
+              <td class="mono">0.79</td>
+              <td class="mono" style="color:var(--red);">-15.3%</td>
+              <td class="mono">1.44</td>
+              <td class="mono">2.6</td>
+            </tr>
+            <tr class="sp-detail" id="dp9"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#B8860B;">GLD</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+8.2%</div><div>CAGR<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.79</div><div>Sharpe<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-15.3%</div><div>Max DD<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.44</div><div>Profit F.<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.6</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-b" style="font-size:1.2rem;">B-<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Gold when DXY weakening + real yields falling. Currently active as dollar has pulled back from 104.8 to 102.4. Caveat: gold has risen despite dollar strength since 2022 (central bank buying).</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>G8:</strong> DXY below 50-day SMA -- <span class="mono" style="color:var(--green-light);">102.4 vs 103.1</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>A4:</strong> Real yield falling (3mo delta &lt; 0) -- <span class="mono" style="color:var(--green-light);">-0.28%</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-b">B</span> <span class="mono" style="margin-left:6px;">CPCV 18/28</span> &middot; <span class="mono">DSR 0.81</span> &middot; <span class="mono">PBO 0.24</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (38 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">38 trades total, 21 good calls (55%).</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 10. Mean Reversion Oversold -->
+            <tr class="sp-row" onclick="toggleDetail('dp10',this)" data-saved="0" data-signal="Cash" data-rating="60" data-sharpe="0.76" data-dd="19.7">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Mean Reversion Oversold</td>
+              <td><span class="signal-cell signal-cash">Cash</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C</span><span class="score-num">75</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C</span><span class="score-num">73</span></td>
+              <td class="mono" style="color:var(--green-light);">+9.3%</td>
+              <td class="mono">0.76</td>
+              <td class="mono" style="color:var(--red);">-19.7%</td>
+              <td class="mono">1.38</td>
+              <td class="mono">6.2</td>
+            </tr>
+            <tr class="sp-detail" id="dp10"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#444C56;">Cash</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+9.3%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.76</div><div>Sharpe<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-19.7%</div><div>Max DD<br><span style="color:var(--amber);">B-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.38</div><div>Profit F.<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">6.2</div><div>Trades/yr<br><span style="color:var(--amber);">B-</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-c">C+<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Buys deeply oversold assets (RSI &lt; 30 + Bollinger Band touch). Currently Cash -- no asset oversold. Higher trade frequency, mediocre win rate but large average winner.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>F20:</strong> RSI(14) &lt; 30 on any asset -- <span class="mono" style="color:var(--text-muted);">None oversold</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>F21:</strong> Price at lower Bollinger Band -- <span class="mono" style="color:var(--text-muted);">Not triggered</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-b">B</span> <span class="mono" style="margin-left:6px;">CPCV 18/28</span> &middot; <span class="mono">DSR 0.82</span> &middot; <span class="mono">PBO 0.21</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (96 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">96 trades total, 50 good calls (52%). Big winners compensate.</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 11. Seasonal Gold Rotation -->
+            <tr class="sp-row" onclick="toggleDetail('dp11',this)" data-saved="0" data-signal="Cash" data-rating="55" data-sharpe="0.71" data-dd="13.8">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Seasonal Gold Rotation</td>
+              <td><span class="signal-cell signal-cash">Cash</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C</span><span class="score-num">73</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C-</span><span class="score-num">70</span></td>
+              <td class="mono" style="color:var(--green-light);">+6.8%</td>
+              <td class="mono">0.71</td>
+              <td class="mono" style="color:var(--red);">-13.8%</td>
+              <td class="mono">1.32</td>
+              <td class="mono">2.0</td>
+            </tr>
+            <tr class="sp-detail" id="dp11"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#444C56;">Cash</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+6.8%</div><div>CAGR<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.71</div><div>Sharpe<br><span style="color:var(--amber);">B-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-13.8%</div><div>Max DD<br><span style="color:var(--amber);">B</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.32</div><div>Profit F.<br><span style="color:var(--amber);">B-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.0</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-c">C<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Gold Aug-Feb (seasonal strength), QQQ Nov-Apr (equity seasonality), Cash in gaps. Simple calendar-based. Robustness B because seasonals alone are statistically weaker. Currently Cash (April gap).</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>S1:</strong> Calendar month Aug-Feb (gold window) -- <span class="mono" style="color:var(--text-muted);">April</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>S2:</strong> Calendar month Nov-Apr (equity window) -- <span class="mono" style="color:var(--text-muted);">Apr overlap ends</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-b">B</span> <span class="mono" style="margin-left:6px;">CPCV 17/28</span> &middot; <span class="mono">DSR 0.80</span> &middot; <span class="mono">PBO 0.26</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (30 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">30 trades total, 18 good calls (60%).</div></div>
+              </div>
+            </td></tr>
+
+            <!-- 12. Silver Catch-Up -->
+            <tr class="sp-row" onclick="toggleDetail('dp12',this)" data-saved="0" data-signal="SLV" data-rating="48" data-sharpe="0.74" data-dd="31.2">
+              <td><span class="fav-heart" onclick="event.stopPropagation();toggleFav(this);">&#9829;</span></td>
+              <td style="font-weight:600;">Silver Catch-Up</td>
+              <td><span class="signal-cell signal-slv">SLV</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--orange);">C-</span><span class="score-num">71</span></td>
+              <td class="score-cell"><span class="score-grade" style="color:var(--red);">D+</span><span class="score-num">68</span></td>
+              <td class="mono" style="color:var(--green-light);">+14.1%</td>
+              <td class="mono">0.74</td>
+              <td class="mono" style="color:var(--red);">-31.2%</td>
+              <td class="mono">1.28</td>
+              <td class="mono">2.8</td>
+            </tr>
+            <tr class="sp-detail" id="dp12"><td colspan="11">
+              <div class="detail-inner">
+                <div class="detail-top">
+                  <div class="detail-signal-badge" style="background:#8A8A8A;">SLV</div>
+                  <div class="detail-kpis">
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+14.1%</div><div>CAGR<br><span style="color:var(--green-light);">A+</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.74</div><div>Sharpe<br><span style="color:var(--amber);">B-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-31.2%</div><div>Max DD<br><span style="color:var(--orange);">C-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.28</div><div>Profit F.<br><span style="color:var(--amber);">B-</span></div></div>
+                    <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.8</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+                  </div>
+                  <div class="detail-grades">
+                    <div class="grade-box grade-c" style="font-size:1.2rem;">C-<div class="grade-label">Overall</div></div>
+                    <div class="grade-box grade-b">B<div class="grade-label">Robust</div></div>
+                  </div>
+                </div>
+                <p class="detail-assessment">Aggressive silver play when gold/silver ratio > 80 + gold bull market confirmed. Highest CAGR in the pool but also worst drawdown (-31.2%). Coin-flip win rate. Not for the faint-hearted.</p>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+                <div class="collapsible-body">
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>H1:</strong> Gold/Silver ratio > 80 -- <span class="mono" style="color:var(--amber);">83.2</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F1:</strong> GLD 12-month momentum > 15% -- <span class="mono" style="color:var(--green-light);">+18.2%</span></span></div>
+                  <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>H14:</strong> SLV lagging GLD by > 5% (6mo) -- <span class="mono" style="color:var(--amber);">lagging 7.3%</span></span></div>
+                </div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+                <div class="collapsible-body"><div><strong>Robustness: </strong><span class="grade-inline grade-b">B</span> <span class="mono" style="margin-left:6px;">CPCV 16/28</span> &middot; <span class="mono">DSR 0.80</span> &middot; <span class="mono">PBO 0.28</span></div></div>
+                <button class="collapsible-trigger" onclick="event.stopPropagation();toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (43 trades)</button>
+                <div class="collapsible-body"><div style="font-size:0.72rem;color:var(--text-muted);">43 trades total, 22 good calls (51%). Big winners compensate for coin-flip hit rate.</div></div>
+              </div>
+            </td></tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== TAB 3: STRATEGIES (SAVED) ==================== -->
+  <div id="tab-strategies" class="tab-content">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+      <div>
+        <div class="section-title" style="margin:0;border:none;padding:0;">Saved Strategies (4)
+          <span class="info-icon" style="vertical-align:middle;margin-left:4px;">?
+            <span class="tooltip">Strategies you've saved from the Discovery pool. These contribute to the Radar consensus signal, weighted by rating score.</span>
+          </span>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">These contribute to the Radar consensus</p>
+      </div>
+      <select class="sp-filter" id="savedSort">
+        <option>Sort by: Rating</option>
+        <option>Sort by: Sharpe</option>
+        <option>Sort by: CAGR</option>
+      </select>
+    </div>
+
+    <!-- Saved Strategy 1: Yield Curve + Gold Trend -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="detail-inner" style="background:var(--card);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.05rem;font-weight:700;">Yield Curve + Gold Trend</div>
+            <span class="badge badge-green"><span class="badge-dot"></span> Rating A+ (97) &middot; Robust A (96)</span>
+          </div>
+          <button class="unsave-btn" onclick="alert('Would unsave this strategy')"><span class="heart-icon">&#9829;</span> Unsave</button>
+        </div>
+        <div class="detail-top">
+          <div class="detail-signal-badge" style="background:#B8860B;">GLD</div>
+          <div class="detail-kpis">
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+11.4%</div><div>CAGR<br><span style="color:var(--green-light);">A+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.12</div><div>Sharpe<br><span style="color:var(--green-light);">A</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-14.2%</div><div>Max DD<br><span style="color:var(--amber);">B+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.84</div><div>Profit F.<br><span style="color:var(--green-light);">A</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">4.2</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+          </div>
+          <div class="detail-grades">
+            <div class="grade-box grade-a">A+<div class="grade-label">Overall</div></div>
+            <div class="grade-box grade-a">A<div class="grade-label">Robust</div></div>
+          </div>
+        </div>
+        <div class="detail-context"><strong>Max DD context:</strong> Peak 2020-02-20 &rarr; trough 2020-03-18 (19 trading days). Gold dropped in liquidity crunch. Recovered by 2020-04-14.</div>
+        <p class="detail-assessment">Strong strategy combining macro recession signal with gold trend confirmation. Performs well across crisis types. Modest drawdowns, good consistency.</p>
+
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+        <div class="collapsible-body">
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>A1:</strong> Yield curve inverted (10Y-2Y &lt; 0) -- <span class="mono" style="color:var(--amber);">-0.18%</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F1:</strong> GLD above 200-day SMA -- <span class="mono" style="color:var(--green-light);">$247 vs $228</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F10:</strong> GLD 12-month momentum positive -- <span class="mono" style="color:var(--green-light);">+18.2%</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>E2:</strong> VIX between 20-30 -- <span class="mono" style="color:var(--text-muted);">19.4</span></span></div>
+        </div>
+
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+        <div class="collapsible-body">
+          <div style="margin-bottom:8px;"><strong>Robustness:</strong> <span class="grade-inline grade-a">A</span> &middot; CPCV <span class="mono">26/28</span> &middot; DSR <span class="mono">0.97</span> &middot; PBO <span class="mono">0.08</span> &middot; Sensitivity: Pass</div>
+          <table>
+            <thead><tr><th>Period</th><th>Strategy</th><th>GLD</th><th>QQQ</th><th>Sharpe</th><th>Max DD</th></tr></thead>
+            <tbody>
+              <tr><td>2008-2010</td><td class="mono" style="color:var(--green-light);">+24.3%</td><td class="mono" style="color:var(--green-light);">+36.2%</td><td class="mono" style="color:var(--red);">-32.1%</td><td class="mono">2.41</td><td class="mono" style="color:var(--red);">-8.1%</td></tr>
+              <tr><td>2014-2016</td><td class="mono" style="color:var(--green-light);">+6.9%</td><td class="mono" style="color:var(--green-light);">+4.1%</td><td class="mono" style="color:var(--green-light);">+11.2%</td><td class="mono">0.81</td><td class="mono" style="color:var(--red);">-7.8%</td></tr>
+              <tr><td>2018-2020</td><td class="mono" style="color:var(--green-light);">+18.7%</td><td class="mono" style="color:var(--green-light);">+31.4%</td><td class="mono" style="color:var(--green-light);">+9.8%</td><td class="mono">1.78</td><td class="mono" style="color:var(--red);">-11.2%</td></tr>
+              <tr><td>2022-2024</td><td class="mono" style="color:var(--green-light);">+6.4%</td><td class="mono" style="color:var(--green-light);">+14.8%</td><td class="mono" style="color:var(--green-light);">+22.1%</td><td class="mono">0.92</td><td class="mono" style="color:var(--red);">-3.8%</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (68 trades)</button>
+        <div class="collapsible-body">
+          <div style="max-height:400px;overflow-y:auto;">
+          <table>
+            <thead style="position:sticky;top:0;background:var(--card);"><tr><th>From</th><th>To</th><th>Holding</th><th>Days</th><th>Return</th><th>Good Call?</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">2008-01-15</td><td class="mono">2008-04-22</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">68</td><td class="mono" style="color:var(--green-light);">+8.2%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2008-04-23</td><td class="mono">2008-06-18</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">40</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2008-06-19</td><td class="mono">2008-09-10</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">58</td><td class="mono" style="color:var(--red);">-7.1%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2008-09-11</td><td class="mono">2008-12-30</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">77</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2009-01-02</td><td class="mono">2009-06-15</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">115</td><td class="mono" style="color:var(--green-light);">+12.4%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2009-06-16</td><td class="mono">2009-08-20</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">46</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2009-08-21</td><td class="mono">2009-12-18</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">83</td><td class="mono" style="color:var(--green-light);">+18.6%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2010-01-04</td><td class="mono">2010-03-22</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">55</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2010-03-23</td><td class="mono">2010-07-14</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">79</td><td class="mono" style="color:var(--green-light);">+9.3%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2010-07-15</td><td class="mono">2010-09-08</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">39</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2010-09-09</td><td class="mono">2011-04-28</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">162</td><td class="mono" style="color:var(--green-light);">+22.1%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2011-04-29</td><td class="mono">2011-06-22</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">38</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2011-06-23</td><td class="mono">2011-09-05</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">52</td><td class="mono" style="color:var(--green-light);">+14.8%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2011-09-06</td><td class="mono">2012-01-18</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">93</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2012-01-19</td><td class="mono">2012-04-11</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">58</td><td class="mono" style="color:var(--green-light);">+3.4%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2012-04-12</td><td class="mono">2012-08-15</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">88</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2012-08-16</td><td class="mono">2012-11-02</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">55</td><td class="mono" style="color:var(--green-light);">+2.8%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2012-11-03</td><td class="mono">2013-02-14</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">72</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2013-02-15</td><td class="mono">2013-04-10</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">38</td><td class="mono" style="color:var(--red);">-11.2%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2013-04-11</td><td class="mono">2013-09-18</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">113</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2013-09-19</td><td class="mono">2013-11-25</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">47</td><td class="mono" style="color:var(--red);">-4.6%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2013-11-26</td><td class="mono">2014-06-04</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">131</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2014-06-05</td><td class="mono">2014-09-18</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">74</td><td class="mono" style="color:var(--red);">-5.3%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2014-09-19</td><td class="mono">2015-01-07</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">77</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2015-01-08</td><td class="mono">2015-05-14</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">88</td><td class="mono" style="color:var(--green-light);">+4.1%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2015-05-15</td><td class="mono">2015-10-06</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">100</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2015-10-07</td><td class="mono">2016-02-10</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">88</td><td class="mono" style="color:var(--green-light);">+7.6%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2016-02-11</td><td class="mono">2016-06-22</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">92</td><td class="mono" style="color:var(--green-light);">+16.2%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2016-06-23</td><td class="mono">2016-10-04</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">72</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2016-10-05</td><td class="mono">2017-01-25</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">78</td><td class="mono" style="color:var(--red);">-3.8%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2017-01-26</td><td class="mono">2017-04-12</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">53</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2017-04-13</td><td class="mono">2017-09-06</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">101</td><td class="mono" style="color:var(--green-light);">+8.9%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2017-09-07</td><td class="mono">2017-12-08</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">64</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2017-12-09</td><td class="mono">2018-03-15</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">66</td><td class="mono" style="color:var(--green-light);">+1.4%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2018-03-16</td><td class="mono">2018-08-14</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">106</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2018-08-15</td><td class="mono">2018-10-30</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">53</td><td class="mono" style="color:var(--green-light);">+5.2%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2018-10-31</td><td class="mono">2019-01-28</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">62</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2019-01-29</td><td class="mono">2019-05-08</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">68</td><td class="mono" style="color:var(--green-light);">+2.1%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2019-05-09</td><td class="mono">2019-06-18</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">28</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2019-06-19</td><td class="mono">2019-11-12</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">103</td><td class="mono" style="color:var(--green-light);">+11.8%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2019-11-13</td><td class="mono">2020-01-22</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">49</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2020-01-23</td><td class="mono">2020-03-05</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">30</td><td class="mono" style="color:var(--green-light);">+3.6%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2020-03-06</td><td class="mono">2020-04-14</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">27</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2020-04-15</td><td class="mono">2020-08-06</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">78</td><td class="mono" style="color:var(--green-light);">+21.4%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2020-08-07</td><td class="mono">2020-11-18</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">72</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2020-11-19</td><td class="mono">2021-02-03</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">52</td><td class="mono" style="color:var(--red);">-3.2%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2021-02-04</td><td class="mono">2021-05-19</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">73</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2021-05-20</td><td class="mono">2021-08-04</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">53</td><td class="mono" style="color:var(--green-light);">+4.7%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2021-08-05</td><td class="mono">2021-11-10</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">67</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2021-11-11</td><td class="mono">2022-02-23</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">72</td><td class="mono" style="color:var(--green-light);">+6.1%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2022-02-24</td><td class="mono">2022-04-18</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">37</td><td class="mono" style="color:var(--green-light);">+8.3%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2022-04-19</td><td class="mono">2022-07-13</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">60</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2022-07-14</td><td class="mono">2022-09-22</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">49</td><td class="mono" style="color:var(--red);">-8.4%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2022-09-23</td><td class="mono">2022-11-02</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">28</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2022-11-03</td><td class="mono">2023-02-01</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">63</td><td class="mono" style="color:var(--green-light);">+11.2%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2023-02-02</td><td class="mono">2023-04-26</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">58</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2023-04-27</td><td class="mono">2023-07-19</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">58</td><td class="mono" style="color:var(--green-light);">+5.8%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2023-07-20</td><td class="mono">2023-10-04</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">53</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2023-10-05</td><td class="mono">2024-01-17</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">72</td><td class="mono" style="color:var(--green-light);">+7.3%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2024-01-18</td><td class="mono">2024-03-06</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">34</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2024-03-07</td><td class="mono">2024-06-12</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">67</td><td class="mono" style="color:var(--green-light);">+14.2%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2024-06-13</td><td class="mono">2024-08-07</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">39</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2024-08-08</td><td class="mono">2024-11-14</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">68</td><td class="mono" style="color:var(--green-light);">+9.8%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2024-11-15</td><td class="mono">2025-01-08</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">38</td><td class="mono" style="color:var(--green-light);">+4.2%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2025-01-09</td><td class="mono">2025-02-14</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">26</td><td class="mono">0.0%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2025-02-15</td><td class="mono">2025-04-02</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">32</td><td class="mono" style="color:var(--green-light);">+6.8%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2025-04-03</td><td class="mono">2025-06-11</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">48</td><td class="mono" style="color:var(--green-light);">+3.1%</td><td style="color:var(--red);">NO</td></tr>
+              <tr><td class="mono">2025-06-12</td><td class="mono">2025-08-20</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">49</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2025-08-21</td><td class="mono">present</td><td class="signal-gld" style="font-weight:600;">GLD</td><td class="mono">...</td><td class="mono" style="color:var(--green-light);">+9.4%</td><td style="color:var(--green-light);">YES</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">68 trades total &middot; 42 good calls (62%) &middot; Avg hold: 63 days &middot; Avg winner: +8.4% &middot; Avg loser: -5.7%</div>
+        </div>
+
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Live Track Record</button>
+        <div class="collapsible-body">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="font-size:0.78rem;color:var(--text-muted);">Saved: <strong class="mono" style="color:var(--text);">Mar 28, 2026</strong></div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">Live days: <strong class="mono" style="color:var(--text);">8 trading days</strong></div>
+            <div style="font-size:0.78rem;"><span class="badge badge-amber">Preliminary</span></div>
+          </div>
+          <table>
+            <thead><tr><th>Since saved</th><th>Strategy</th><th>GLD</th><th>SLV</th><th>QQQ</th><th>Cash</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Mar 28 &rarr; Apr 7</td>
+                <td class="mono" style="color:var(--green-light);font-weight:600;">+2.8%</td>
+                <td class="mono" style="color:var(--green-light);">+2.8%</td>
+                <td class="mono" style="color:var(--green-light);">+1.4%</td>
+                <td class="mono" style="color:var(--red);">-3.2%</td>
+                <td class="mono">0.0%</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Too early to draw conclusions — 8 trading days is noise. Meaningful after 90+ days. Live trades: 0 (holding GLD since save date).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Strategy 2: Credit Stress Defensive -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="detail-inner" style="background:var(--card);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.05rem;font-weight:700;">Credit Stress Defensive</div>
+            <span class="badge badge-green"><span class="badge-dot"></span> Rating A (95) &middot; Robust A+ (97)</span>
+          </div>
+          <button class="unsave-btn" onclick="alert('Would unsave this strategy')"><span class="heart-icon">&#9829;</span> Unsave</button>
+        </div>
+        <div class="detail-top">
+          <div class="detail-signal-badge" style="background:#444C56;">Cash</div>
+          <div class="detail-kpis">
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+8.7%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.34</div><div>Sharpe<br><span style="color:var(--green-light);">A+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">-6.1%</div><div>Max DD<br><span style="color:var(--green-light);">A+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.12</div><div>Profit F.<br><span style="color:var(--green-light);">A+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">2.8</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+          </div>
+          <div class="detail-grades">
+            <div class="grade-box grade-a">A+<div class="grade-label">Overall</div></div>
+            <div class="grade-box grade-a">A<div class="grade-label">Robust</div></div>
+          </div>
+        </div>
+        <p class="detail-assessment">Pure defensive. Moves to cash when credit markets deteriorate. Lowest drawdowns, highest Sharpe. Best in sharp crises (2008, 2020). Underperforms in slow grinds.</p>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+        <div class="collapsible-body">
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>B1:</strong> HY spreads > 400bp -- <span class="mono" style="color:var(--amber);">482bp</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>B9:</strong> Credit spread acceleration > 20%/1mo -- <span class="mono" style="color:var(--red);">+28%</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-inactive">Inactive</span><span><strong>B11:</strong> Bank lending tightening > 30% -- <span class="mono" style="color:var(--text-muted);">22%</span></span></div>
+        </div>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+        <div class="collapsible-body">
+          <div style="margin-bottom:8px;"><strong>Robustness:</strong> <span class="grade-inline grade-a">A</span> &middot; CPCV <span class="mono">25/28</span> &middot; DSR <span class="mono">0.96</span> &middot; PBO <span class="mono">0.10</span></div>
+        </div>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (52 trades)</button>
+        <div class="collapsible-body">
+          <table>
+            <thead><tr><th>From</th><th>To</th><th>Holding</th><th>Days</th><th>Return</th><th>Good Call?</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">2025-01-20</td><td class="mono">2025-04-05</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">54</td><td class="mono">0.0%</td><td style="color:var(--green-light);">YES</td></tr>
+              <tr><td class="mono">2025-04-06</td><td class="mono">present</td><td class="signal-cash" style="font-weight:600;">Cash</td><td class="mono">...</td><td class="mono">0.0%</td><td style="color:var(--text-muted);">--</td></tr>
+            </tbody>
+          </table>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Showing last 2 trades. Total: 52 trades, 37 good calls (71%).</div>
+        </div>
+
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Live Track Record</button>
+        <div class="collapsible-body">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="font-size:0.78rem;color:var(--text-muted);">Saved: <strong class="mono" style="color:var(--text);">Mar 28, 2026</strong></div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">Live days: <strong class="mono" style="color:var(--text);">8 trading days</strong></div>
+            <div style="font-size:0.78rem;"><span class="badge badge-amber">Preliminary</span></div>
+          </div>
+          <table>
+            <thead><tr><th>Since saved</th><th>Strategy</th><th>GLD</th><th>SLV</th><th>QQQ</th><th>Cash</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Mar 28 &rarr; Apr 7</td>
+                <td class="mono" style="font-weight:600;">0.0%</td>
+                <td class="mono" style="color:var(--green-light);">+2.8%</td>
+                <td class="mono" style="color:var(--green-light);">+1.4%</td>
+                <td class="mono" style="color:var(--red);">-3.2%</td>
+                <td class="mono">0.0%</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Avoided QQQ's -3.2% decline. Missed GLD's +2.8% gain. Net: correct to be defensive given credit deterioration.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Strategy 3: Momentum + Vol Regime -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="detail-inner" style="background:var(--card);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.05rem;font-weight:700;">Momentum + Vol Regime</div>
+            <span class="badge badge-yellow-green"><span class="badge-dot"></span> Rating A- (91) &middot; Robust B (85)</span>
+          </div>
+          <button class="unsave-btn" onclick="alert('Would unsave this strategy')"><span class="heart-icon">&#9829;</span> Unsave</button>
+        </div>
+        <div class="detail-top">
+          <div class="detail-signal-badge" style="background:#B8860B;">GLD</div>
+          <div class="detail-kpis">
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+10.2%</div><div>CAGR<br><span style="color:var(--green-light);">A</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.98</div><div>Sharpe<br><span style="color:var(--amber);">B+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-16.8%</div><div>Max DD<br><span style="color:var(--amber);">B</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.62</div><div>Profit F.<br><span style="color:var(--amber);">B+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">5.1</div><div>Trades/yr<br><span style="color:var(--amber);">B</span></div></div>
+          </div>
+          <div class="detail-grades">
+            <div class="grade-box grade-a" style="font-size:1.2rem;">A-<div class="grade-label">Overall</div></div>
+            <div class="grade-box grade-a">A<div class="grade-label">Robust</div></div>
+          </div>
+        </div>
+        <p class="detail-assessment">Follows relative momentum between gold and equities, confirmed by volatility regime shift. More trades, works best in trending markets.</p>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+        <div class="collapsible-body">
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F14:</strong> Dual momentum GLD vs QQQ -- <span class="mono" style="color:var(--green-light);">GLD +18.2% vs QQQ +7.1%</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>E11:</strong> VIX 20d avg > 50d avg -- <span class="mono" style="color:var(--amber);">18.1 vs 15.3</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F19:</strong> Vol-adjusted momentum GLD > 1.0 -- <span class="mono" style="color:var(--green-light);">1.24</span></span></div>
+        </div>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+        <div class="collapsible-body">
+          <div style="margin-bottom:8px;"><strong>Robustness:</strong> <span class="grade-inline grade-a">A</span> &middot; CPCV <span class="mono">24/28</span> &middot; DSR <span class="mono">0.93</span> &middot; PBO <span class="mono">0.14</span></div>
+        </div>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (81 trades)</button>
+        <div class="collapsible-body">
+          <div style="font-size:0.72rem;color:var(--text-muted);">81 trades total, 47 good calls (58%). Higher frequency but solid risk-adjusted returns.</div>
+        </div>
+
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Live Track Record</button>
+        <div class="collapsible-body">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="font-size:0.78rem;color:var(--text-muted);">Saved: <strong class="mono" style="color:var(--text);">Mar 15, 2026</strong></div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">Live days: <strong class="mono" style="color:var(--text);">17 trading days</strong></div>
+            <div style="font-size:0.78rem;"><span class="badge badge-amber">Preliminary</span></div>
+          </div>
+          <table>
+            <thead><tr><th>Since saved</th><th>Strategy</th><th>GLD</th><th>SLV</th><th>QQQ</th><th>Cash</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Mar 15 &rarr; Apr 7</td>
+                <td class="mono" style="color:var(--green-light);font-weight:600;">+4.1%</td>
+                <td class="mono" style="color:var(--green-light);">+4.1%</td>
+                <td class="mono" style="color:var(--green-light);">+2.6%</td>
+                <td class="mono" style="color:var(--red);">-5.8%</td>
+                <td class="mono">0.0%</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Outperforming all assets except its own pick (GLD). 17 days still too short.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Strategy 4: Precious Metals Bull -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="detail-inner" style="background:var(--card);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.05rem;font-weight:700;">Precious Metals Bull</div>
+            <span class="badge badge-amber"><span class="badge-dot"></span> Rating B+ (87) &middot; Robust B- (82)</span>
+          </div>
+          <button class="unsave-btn" onclick="alert('Would unsave this strategy')"><span class="heart-icon">&#9829;</span> Unsave</button>
+        </div>
+        <div class="detail-top">
+          <div class="detail-signal-badge" style="background:#8A8A8A;">SLV</div>
+          <div class="detail-kpis">
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--green-light);">+13.6%</div><div>CAGR<br><span style="color:var(--green-light);">A+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">0.82</div><div>Sharpe<br><span style="color:var(--amber);">B</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;color:var(--red);">-28.1%</div><div>Max DD<br><span style="color:var(--orange);">C+</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">1.48</div><div>Profit F.<br><span style="color:var(--amber);">B</span></div></div>
+            <div class="detail-kpi"><div class="mono" style="font-size:1.3rem;font-weight:700;">3.1</div><div>Trades/yr<br><span style="color:var(--green-light);">A</span></div></div>
+          </div>
+          <div class="detail-grades">
+            <div class="grade-box grade-b">B+<div class="grade-label">Overall</div></div>
+            <div class="grade-box grade-b">B+<div class="grade-label">Robust</div></div>
+          </div>
+        </div>
+        <p class="detail-assessment">Silver when gold/silver ratio elevated and both metals trending up. Highest CAGR but largest drawdown. Silver's beta makes this volatile.</p>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Strategy Rules</button>
+        <div class="collapsible-body">
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>H1:</strong> Gold/Silver ratio > 80 -- <span class="mono" style="color:var(--amber);">83.2</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>H13:</strong> GLD and SLV both above SMA50 -- <span class="mono" style="color:var(--green-light);">confirmed</span></span></div>
+          <div class="rule-item"><span class="rule-status rule-active">Active</span><span><strong>F5:</strong> SLV above 200-day SMA -- <span class="mono" style="color:var(--green-light);">$29.80 vs $26.40</span></span></div>
+        </div>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Robustness Check</button>
+        <div class="collapsible-body">
+          <div style="margin-bottom:8px;"><strong>Robustness:</strong> <span class="grade-inline grade-b">B+</span> &middot; CPCV <span class="mono">21/28</span> &middot; DSR <span class="mono">0.90</span> &middot; PBO <span class="mono">0.18</span></div>
+        </div>
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Trade Log (48 trades)</button>
+        <div class="collapsible-body">
+          <div style="font-size:0.72rem;color:var(--text-muted);">48 trades total, 26 good calls (54%). Big winners compensate for low hit rate.</div>
+        </div>
+
+        <button class="collapsible-trigger" onclick="toggleCollapse(this)"><span class="arrow">&#9654;</span> Live Track Record</button>
+        <div class="collapsible-body">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="font-size:0.78rem;color:var(--text-muted);">Saved: <strong class="mono" style="color:var(--text);">Apr 5, 2026</strong></div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">Live days: <strong class="mono" style="color:var(--text);">2 trading days</strong></div>
+            <div style="font-size:0.78rem;"><span class="badge badge-red">Too early</span></div>
+          </div>
+          <table>
+            <thead><tr><th>Since saved</th><th>Strategy</th><th>GLD</th><th>SLV</th><th>QQQ</th><th>Cash</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Apr 5 &rarr; Apr 7</td>
+                <td class="mono" style="color:var(--green-light);font-weight:600;">+0.3%</td>
+                <td class="mono" style="color:var(--green-light);">+0.4%</td>
+                <td class="mono" style="color:var(--green-light);">+0.3%</td>
+                <td class="mono" style="color:var(--red);">-0.8%</td>
+                <td class="mono">0.0%</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;">Saved 2 days ago — not evaluable yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== TAB 4: INDICATORS ==================== -->
+  <div id="tab-indicators" class="tab-content">
+
+    <!-- ===== Rates & Yield Curve ===== -->
+    <div class="indicator-section-header">Rates &amp; Yield Curve</div>
+    <div class="macro-grid">
+
+      <!-- 10Y-2Y Spread -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Yield Curve (10Y - 2Y)</div>
+          <span class="badge badge-amber">Elevated</span>
+        </div>
+        <div class="indicator-card-series">T10Y2Y</div>
+        <div class="indicator-card-value" style="color:var(--amber);">-0.18%</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Inverted &mdash; historically signals recession within 12-18 months</span></div>
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Was +0.12% three months ago &mdash; re-inversion is the most dangerous pattern</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:35%;"></div></div>
+        <div class="macro-range"><span>-2.50%</span><span>+2.50%</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-live"><span class="freshness-dot"></span> Live</span>
+          <span>Range: -2.37% to +2.67%</span>
+        </div>
+      </div>
+
+      <!-- 10Y-3M Spread -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Yield Curve (10Y - 3M)</div>
+          <span class="badge badge-red">Critical</span>
+        </div>
+        <div class="indicator-card-series">T10Y3M</div>
+        <div class="indicator-card-value" style="color:var(--red);">-0.82%</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Deeply inverted &mdash; most reliable recession predictor. Every recession since 1970 preceded by this.</span></div>
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Deepening inversion over past 3 months</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:22%;"></div></div>
+        <div class="macro-range"><span>-3.00%</span><span>+4.00%</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-live"><span class="freshness-dot"></span> Live</span>
+        </div>
+      </div>
+
+      <!-- Real Yield -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Real Yield (10Y TIPS)</div>
+          <span class="badge badge-blue">Neutral</span>
+        </div>
+        <div class="indicator-card-series">DFII10</div>
+        <div class="indicator-card-value" style="color:var(--text);">1.82%</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-neutral"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#8212; NEUTRAL</span><span class="indicator-signal-text">Positive real yields &mdash; headwind for gold, normal for stocks</span></div>
+          <div class="indicator-signal-row signal-bullish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9650; BULLISH</span><span class="indicator-signal-text">Falling from 2.10% &mdash; easing pressure on gold, supportive for assets</span></div>
+        </div>
+        <div class="gradient-bar gradient-bar-inverse"><div class="gradient-marker" style="left:62%;"></div></div>
+        <div class="macro-range"><span>-1.50%</span><span>+3.00%</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-live"><span class="freshness-dot"></span> Live</span>
+        </div>
+      </div>
+
+      <!-- Fed Funds Rate -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Fed Funds Rate</div>
+          <span class="badge badge-blue">On Hold</span>
+        </div>
+        <div class="indicator-card-series">FEDFUNDS</div>
+        <div class="indicator-card-value" style="color:var(--text);">4.75%</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-caution"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Restrictive &mdash; high rates are a headwind for stocks and gold</span></div>
+          <div class="indicator-signal-row signal-neutral"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#8212; NEUTRAL</span><span class="indicator-signal-text">Unchanged 4 months. Paused after cutting from 5.50% peak. Markets pricing 2 more cuts.</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:72%;"></div></div>
+        <div class="macro-range"><span>0%</span><span>6%</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-recent"><span class="freshness-dot"></span> Recent</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== Credit & Financial Conditions ===== -->
+    <div class="indicator-section-header">Credit &amp; Financial Conditions</div>
+    <div class="macro-grid">
+
+      <!-- HY Spread -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">High Yield Credit Spread</div>
+          <span class="badge badge-amber">Elevated</span>
+        </div>
+        <div class="indicator-card-series">BAMLH0A0HYM2</div>
+        <div class="indicator-card-value" style="color:var(--amber);">482 bp</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Credit stress building &mdash; not crisis (&gt;600bp) but elevated</span></div>
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">+142bp in 3 months (was 340bp) &mdash; rapid deterioration</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:48%;"></div></div>
+        <div class="macro-range"><span>200bp</span><span>1000bp</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-live"><span class="freshness-dot"></span> Live</span>
+        </div>
+      </div>
+
+      <!-- Breakeven Inflation -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Breakeven Inflation (10Y)</div>
+          <span class="badge badge-amber">Watch</span>
+        </div>
+        <div class="indicator-card-series">T10YIE</div>
+        <div class="indicator-card-value" style="color:var(--amber);">2.48%</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-caution"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Above 2% target &mdash; sticky inflation keeps Fed restrictive</span></div>
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Rising &mdash; was 2.28% six months ago, inflation expectations worsening</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:52%;"></div></div>
+        <div class="macro-range"><span>0.50%</span><span>3.50%</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-live"><span class="freshness-dot"></span> Live</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== Labor Market ===== -->
+    <div class="indicator-section-header">Labor Market</div>
+    <div class="macro-grid">
+
+      <!-- Unemployment -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Unemployment Rate</div>
+          <span class="badge badge-amber">Watch</span>
+        </div>
+        <div class="indicator-card-series">UNRATE</div>
+        <div class="indicator-card-value" style="color:var(--amber);">4.1%</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-neutral"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#8212; NEUTRAL</span><span class="indicator-signal-text">Still historically low &mdash; but approaching Sahm Rule trigger zone</span></div>
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Rising from 3.7% &mdash; direction matters more than level here</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:16%;"></div></div>
+        <div class="macro-range"><span>3.0%</span><span>10.0%</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-recent"><span class="freshness-dot"></span> Recent</span>
+          <span>Monthly release, 1-month lag</span>
+        </div>
+      </div>
+
+      <!-- Sahm Rule -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Sahm Rule Recession Indicator</div>
+          <span class="badge badge-amber">Watch</span>
+        </div>
+        <div class="indicator-card-series">SAHMREALTIME</div>
+        <div class="indicator-card-value" style="color:var(--amber);">0.37</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-caution"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">0.13 away from 0.50 trigger &mdash; every breach = recession confirmed</span></div>
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Rising toward trigger &mdash; one weak jobs report could breach it</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:37%;"></div></div>
+        <div class="macro-range"><span>0.00</span><span>1.00</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-recent"><span class="freshness-dot"></span> Recent</span>
+          <span>Trigger level: 0.50</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== Inflation ===== -->
+    <div class="indicator-section-header">Inflation</div>
+    <div class="macro-grid">
+
+      <!-- CPI -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">CPI All Items (Year-over-Year)</div>
+          <span class="badge badge-amber">Elevated</span>
+        </div>
+        <div class="indicator-card-series">CPIAUCSL</div>
+        <div class="indicator-card-value" style="color:var(--amber);">3.2%</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-caution"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Above 3% &mdash; keeps Fed restrictive, headwind for stocks</span></div>
+          <div class="indicator-signal-row signal-neutral"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#8212; NEUTRAL</span><span class="indicator-signal-text">Stuck at 3.1-3.3% for 4 months &mdash; not improving, not worsening</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:35%;"></div></div>
+        <div class="macro-range"><span>0%</span><span>9%</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-lagged"><span class="freshness-dot"></span> Lagged</span>
+          <span>Monthly, ~2 week lag</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== Volatility ===== -->
+    <div class="indicator-section-header">Volatility</div>
+    <div class="macro-grid">
+
+      <!-- VIX -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">VIX (Implied Volatility Index)</div>
+          <span class="badge badge-blue">Watch</span>
+        </div>
+        <div class="indicator-card-series">VIXCLS</div>
+        <div class="indicator-card-value" style="color:var(--text);">19.4</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-neutral"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#8212; NEUTRAL</span><span class="indicator-signal-text">Above median (17) but below fear threshold (25) &mdash; uncertainty without panic</span></div>
+          <div class="indicator-signal-row signal-bearish"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">Was 14.2 one month ago (+5.2) &mdash; volatility rising fast</span></div>
+        </div>
+        <div class="gradient-bar"><div class="gradient-marker" style="left:15%;"></div></div>
+        <div class="macro-range"><span>9</span><span>80</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-live"><span class="freshness-dot"></span> Live</span>
+          <span>Long-term median: ~17</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== Liquidity ===== -->
+    <div class="indicator-section-header">Liquidity</div>
+    <div class="macro-grid">
+
+      <!-- Fed Balance Sheet (proxy) -->
+      <div class="indicator-card">
+        <div class="indicator-card-header">
+          <div class="indicator-card-title">Fed Balance Sheet (Total Assets)</div>
+          <span class="badge badge-blue">Neutral</span>
+        </div>
+        <div class="indicator-card-series">WALCL</div>
+        <div class="indicator-card-value" style="color:var(--text);">$7.2T</div>
+        <div class="indicator-signals">
+          <div class="indicator-signal-row signal-caution"><span class="indicator-signal-label">Value</span><span class="indicator-signal-badge">&#9660; BEARISH</span><span class="indicator-signal-text">QT ongoing &mdash; liquidity drain is a headwind for all risk assets</span></div>
+          <div class="indicator-signal-row signal-neutral"><span class="indicator-signal-label">Trend</span><span class="indicator-signal-badge">&#8212; NEUTRAL</span><span class="indicator-signal-text">Pace slowed to $25B/month (from $95B) &mdash; headwind diminishing</span></div>
+        </div>
+        <div class="gradient-bar gradient-bar-inverse"><div class="gradient-marker" style="left:55%;"></div></div>
+        <div class="macro-range"><span>$4T</span><span>$9T</span></div>
+        <div class="indicator-meta">
+          <span class="freshness fresh-recent"><span class="freshness-dot"></span> Recent</span>
+          <span>Weekly release</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== Technical Indicators ===== -->
+    <div class="indicator-section-header">Technical Indicators by Asset</div>
+    <div class="card" style="padding:12px;">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Indicator</th><th>GLD</th><th>SLV</th><th>QQQ</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Price</td><td class="mono">$247.30</td><td class="mono">$29.80</td><td class="mono">$412.60</td></tr>
+            <tr><td>SMA 50</td><td class="mono" style="color:var(--green-light);">$241.20 (above)</td><td class="mono" style="color:var(--green-light);">$28.40 (above)</td><td class="mono" style="color:var(--green-light);">$408.10 (above)</td></tr>
+            <tr><td>SMA 200</td><td class="mono" style="color:var(--green-light);">$228.15 (above)</td><td class="mono" style="color:var(--green-light);">$26.40 (above)</td><td class="mono" style="color:var(--amber);">$410.20 (barely)</td></tr>
+            <tr><td>RSI (14)</td><td class="mono">62.4</td><td class="mono">58.1</td><td class="mono">44.8</td></tr>
+            <tr><td>12-mo Momentum</td><td class="mono" style="color:var(--green-light);">+18.2%</td><td class="mono" style="color:var(--green-light);">+12.8%</td><td class="mono" style="color:var(--green-light);">+7.1%</td></tr>
+            <tr><td>20d Volatility</td><td class="mono">14.2%</td><td class="mono">22.8%</td><td class="mono">18.6%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cross-Asset Ratios -->
+    <div class="indicator-section-header">Cross-Asset Ratios</div>
+    <div class="card" style="padding:12px;">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Ratio</th><th>Current</th><th>1Y Ago</th><th>Trend</th><th>Interpretation</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Gold / Silver</td><td class="mono">83.2</td><td class="mono">78.4</td><td style="color:var(--amber);">&#9650; Rising</td><td style="font-size:0.78rem;">Above 80 = silver undervalued relative to gold. Historically mean-reverts, suggesting silver catch-up potential.</td></tr>
+            <tr><td>GLD / QQQ</td><td class="mono">0.599</td><td class="mono">0.543</td><td style="color:var(--green-light);">&#9650; Gold outperforming</td><td style="font-size:0.78rem;">Gold gaining relative strength vs tech. Favors gold momentum strategies.</td></tr>
+            <tr><td>GLD / SLV</td><td class="mono">8.30</td><td class="mono">8.12</td><td style="color:var(--text-muted);">&#8212; Stable</td><td style="font-size:0.78rem;">Gold slightly outpacing silver. Ratio above 8 = silver underperforming.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ==================== JAVASCRIPT ==================== -->
+<script>
+// Password
+function enterApp() {
+  document.getElementById('passwordScreen').classList.remove('active');
+  document.getElementById('appScreen').classList.add('active');
+}
+document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') enterApp();
+});
+
+// Tab switching
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Collapsible sections
+function toggleCollapse(trigger) {
+  trigger.classList.toggle('open');
+  var body = trigger.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+// Pool table row expand/collapse
+function toggleDetail(detailId, row) {
+  var detail = document.getElementById(detailId);
+  var isOpen = detail.classList.contains('open');
+
+  // Close all other details
+  document.querySelectorAll('.sp-detail.open').forEach(function(d) {
+    d.classList.remove('open');
+  });
+  document.querySelectorAll('.sp-row.expanded').forEach(function(r) {
+    r.classList.remove('expanded');
+  });
+
+  if (!isOpen) {
+    detail.classList.add('open');
+    row.classList.add('expanded');
+  }
+}
+
+// Heart toggle for save/unsave
+function toggleFav(heart) {
+  heart.classList.toggle('fav-on');
+  // Update data-saved attribute on parent row
+  var row = heart.closest('tr');
+  if (row) {
+    var isSaved = heart.classList.contains('fav-on') ? '1' : '0';
+    row.setAttribute('data-saved', isSaved);
+  }
+}
+
+// Discovery progress bar simulation
+function runDiscovery() {
+  var btn = document.getElementById('runBtn');
+  var container = document.getElementById('progressContainer');
+  var bar = document.getElementById('progressBar');
+  var text = document.getElementById('progressText');
+
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  container.style.display = 'block';
+  text.style.display = 'block';
+  bar.style.width = '0%';
+
+  var steps = [
+    { pct: 10, msg: 'Loading indicator data...' },
+    { pct: 25, msg: 'Generating candidate strategies...' },
+    { pct: 45, msg: 'Running backtests (84/200)...' },
+    { pct: 65, msg: 'Running backtests (156/200)...' },
+    { pct: 80, msg: 'Computing robustness metrics...' },
+    { pct: 92, msg: 'Ranking and filtering...' },
+    { pct: 100, msg: 'Complete! 12 strategies passed filters.' },
+  ];
+
+  var i = 0;
+  function nextStep() {
+    if (i < steps.length) {
+      bar.style.width = steps[i].pct + '%';
+      text.textContent = steps[i].msg;
+      i++;
+      setTimeout(nextStep, 700 + Math.random() * 500);
+    } else {
+      setTimeout(function() {
+        btn.disabled = false;
+        btn.textContent = 'Run Discovery';
+      }, 1000);
+    }
+  }
+  nextStep();
+}
+
+// Placeholder filter function (just prevents errors)
+function applyFilters() {
+  // In a real app, this would filter the table rows
+  // For the mockup, we just acknowledge the action
+  console.log('Filters applied (mockup - no actual filtering)');
+}
+</script>
+
+</body>
+</html>
