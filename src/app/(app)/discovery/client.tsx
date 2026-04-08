@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import StrategyPoolRow from '@/components/StrategyPoolRow';
-import type { Asset } from '@/lib/types';
+import type { Asset, MarketData } from '@/lib/types';
+import { scoreToGrade } from '@/lib/types';
+import { allRules } from '@/lib/engine/rules/index';
+import { backtestStrategy } from '@/lib/engine/backtest';
+import { computeRatingScore } from '@/lib/engine/scoring';
+import { computeCurrentSignal } from '@/lib/engine/signals';
 
 interface PoolStrategy {
   strategy_id: string;
@@ -32,12 +37,25 @@ interface Props {
   dataDate: string;
 }
 
+const categoryNames: Record<string, string> = {
+  A: 'Yield Curve', B: 'Credit', C: 'Labor', D: 'Inflation',
+  E: 'Volatility', F: 'Momentum', G: 'Mean Reversion', H: 'Cross-Asset',
+  I: 'Leading', J: 'Liquidity', K: 'Sentiment', L: 'Seasonal', M: 'Composite',
+};
+
+function generateName(rules: { id: string; category: string }[]): string {
+  const categories = Array.from(new Set(rules.map(r => r.category)));
+  const parts = categories.slice(0, 2).map(c => categoryNames[c] || c);
+  if (categories.length > 2) return `${parts.join(' + ')} +${categories.length - 2}`;
+  return parts.join(' + ');
+}
+
 export default function DiscoveryClient({ strategies: initial, dataDate }: Props) {
   const [strategies, setStrategies] = useState(initial);
   const [maxRules, setMaxRules] = useState(5);
-  const [maxStrategies, setMaxStrategies] = useState(2000);
+  const [maxStrategies, setMaxStrategies] = useState(10000);
   const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState({ pct: 0, phase: '', generated: 0, passed: 0 });
+  const [progress, setProgress] = useState({ pct: 0, phase: '', tested: 0, passed: 0 });
 
   // Filters
   const [filterSignal, setFilterSignal] = useState('all');
@@ -87,102 +105,216 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
   async function runDiscovery() {
     setRunning(true);
     setLastResult(null);
-    setProgress({ pct: 50, phase: 'Generating and testing strategies...', generated: 0, passed: 0 });
     const startTime = Date.now();
 
     try {
-      const res = await fetch('/api/discovery/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_rules: maxRules, max_strategies: maxStrategies }),
-      });
+      // Phase 1: Download market data
+      setProgress({ pct: 5, phase: 'Downloading market data...', tested: 0, passed: 0 });
+      const dataRes = await fetch('/api/data/market');
+      if (!dataRes.ok) {
+        throw new Error('Failed to load market data. Try refreshing data first.');
+      }
+      const data: MarketData = await dataRes.json();
 
+      const priceDates = Object.values(data.prices)[0];
+      if (!priceDates || priceDates.length < 300) {
+        throw new Error('Insufficient price data. Need at least 300 trading days. Refresh data first.');
+      }
+
+      const startDate = priceDates[252]?.date || priceDates[0].date;
+      const endDate = priceDates[priceDates.length - 1].date;
+      const dataLoadTime = Date.now() - startTime;
+
+      setProgress({ pct: 10, phase: `Data loaded (${(dataLoadTime / 1000).toFixed(1)}s). Generating candidates...`, tested: 0, passed: 0 });
+
+      // Phase 2: Generate candidates
+      const rulePool = [...allRules];
+      const seen = new Set<string>();
+      const candidates: { name: string; rules: typeof allRules; ruleIds: string[] }[] = [];
+
+      for (let attempt = 0; attempt < maxStrategies * 4 && candidates.length < maxStrategies; attempt++) {
+        const numRules = 3 + Math.floor(Math.random() * (maxRules - 2));
+        const shuffled = [...rulePool].sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, numRules);
+        const ruleIds = selected.map(r => r.id).sort();
+        const key = ruleIds.join(',');
+
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const cats = new Set(selected.map(r => r.category));
+        if (cats.size < 2) continue;
+
+        candidates.push({ name: generateName(selected), rules: selected, ruleIds });
+      }
+
+      // Phase 3: Backtest in browser — real-time progress
+      const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_rating: 0 };
+      const passedStrategies: {
+        name: string;
+        ruleIds: string[];
+        ratingScore: number;
+        robustnessScore: number;
+        signal: string;
+        cagr: number;
+        sharpe: number;
+        max_drawdown: number;
+        profit_factor: number;
+        trades_per_year: number;
+        total_trades: number;
+        win_rate: number;
+        trades: any[];
+      }[] = [];
+
+      const updateInterval = Math.max(1, Math.floor(candidates.length / 100)); // Update progress ~100 times
+
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+
+        // Update progress periodically (not every iteration — that would be slow)
+        if (i % updateInterval === 0) {
+          const pct = 10 + Math.round((i / candidates.length) * 80);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+          setProgress({
+            pct,
+            phase: `Testing ${i.toLocaleString()}/${candidates.length.toLocaleString()} (${elapsed}s) — ${passedStrategies.length} passed`,
+            tested: i,
+            passed: passedStrategies.length,
+          });
+          // Yield to browser so UI updates
+          await new Promise(r => setTimeout(r, 0));
+        }
+
+        try {
+          const result = backtestStrategy(candidate.rules, 'majority', data, startDate, endDate);
+
+          if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
+          if (result.total_trades < 2) { filterStats.few_trades++; continue; }
+          if (result.cagr < -0.10) { filterStats.negative_cagr++; continue; }
+
+          const ratingScore = computeRatingScore(result);
+          if (ratingScore < 40) { filterStats.low_rating++; continue; }
+
+          const robustnessScore = Math.min(100, Math.max(0,
+            (result.profit_factor > 1 ? 30 : 0) +
+            (result.sharpe > 0.5 ? 20 : result.sharpe > 0.3 ? 10 : 0) +
+            (result.total_trades > 10 ? 15 : result.total_trades > 5 ? 10 : 5) +
+            (Math.abs(result.max_drawdown) < 0.2 ? 20 : Math.abs(result.max_drawdown) < 0.3 ? 10 : 0) +
+            (result.win_rate > 0.55 ? 15 : result.win_rate > 0.45 ? 10 : 5)
+          ));
+
+          const current = computeCurrentSignal(candidate.rules, 'majority', data);
+
+          passedStrategies.push({
+            name: candidate.name,
+            ruleIds: candidate.ruleIds,
+            ratingScore,
+            robustnessScore,
+            signal: current.signal,
+            cagr: result.cagr,
+            sharpe: result.sharpe,
+            max_drawdown: result.max_drawdown,
+            profit_factor: result.profit_factor,
+            trades_per_year: result.trades_per_year,
+            total_trades: result.total_trades,
+            win_rate: result.win_rate,
+            trades: result.trades?.slice(-20) || [],
+          });
+        } catch {
+          filterStats.backtest_error++;
+        }
+      }
+
+      // Phase 4: Save passing strategies to server
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       const now = new Date().toLocaleTimeString();
 
-      // Handle non-JSON responses (e.g. Vercel timeout returns HTML)
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        setLastResult({
-          type: 'error',
-          message: `Server timeout after ${elapsed}s`,
-          detail: 'The request took too long. Try a lower Max Strategies value (e.g. 2000) or run multiple times.',
-          timestamp: now,
+      if (passedStrategies.length > 0) {
+        setProgress({
+          pct: 92,
+          phase: `Saving ${passedStrategies.length} strategies to database...`,
+          tested: candidates.length,
+          passed: passedStrategies.length,
         });
-        setProgress({ pct: 0, phase: '', generated: 0, passed: 0 });
-        return;
-      }
 
-      const result = await res.json();
+        const runId = `run_${Date.now()}`;
 
-      if (!res.ok || result.error) {
-        setLastResult({
-          type: 'error',
-          message: `Discovery failed after ${elapsed}s`,
-          detail: result.error || 'Unknown error from server',
-          timestamp: now,
+        // Save in batches of 100 to avoid request size limits
+        const saveBatchSize = 100;
+        let totalSaved = 0;
+
+        for (let i = 0; i < passedStrategies.length; i += saveBatchSize) {
+          const batch = passedStrategies.slice(i, i + saveBatchSize);
+          const saveRes = await fetch('/api/discovery/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ strategies: batch, run_id: runId }),
+          });
+          if (saveRes.ok) {
+            const saveResult = await saveRes.json();
+            totalSaved += saveResult.saved || 0;
+          }
+        }
+
+        // Reload pool
+        setProgress({
+          pct: 97,
+          phase: 'Reloading pool...',
+          tested: candidates.length,
+          passed: passedStrategies.length,
         });
-        setProgress({ pct: 0, phase: '', generated: 0, passed: 0 });
-        return;
-      }
 
-      setProgress({
-        pct: 100,
-        phase: `Done! ${result.passed} passed / ${result.generated} tested`,
-        generated: result.generated,
-        passed: result.passed,
-      });
+        const poolRes = await fetch('/api/strategies?pool=true');
+        if (poolRes.ok) {
+          const newStrategies = await poolRes.json();
+          setStrategies(newStrategies.map((r: any) => ({
+            ...r,
+            signal: r.signal || 'Cash',
+            rules: r.rules || [],
+            saved: r.saved || false,
+          })));
+        }
 
-      // Reload pool
-      const poolRes = await fetch('/api/strategies?pool=true');
-      if (poolRes.ok) {
-        const newStrategies = await poolRes.json();
-        setStrategies(newStrategies.map((r: any) => ({
-          ...r,
-          signal: r.signal || 'Cash',
-          rules: r.rules || [],
-          saved: r.saved || false,
-        })));
-      }
+        const filterParts: string[] = [];
+        if (filterStats.low_sharpe) filterParts.push(`${filterStats.low_sharpe} low Sharpe`);
+        if (filterStats.few_trades) filterParts.push(`${filterStats.few_trades} too few trades`);
+        if (filterStats.negative_cagr) filterParts.push(`${filterStats.negative_cagr} negative CAGR`);
+        if (filterStats.low_rating) filterParts.push(`${filterStats.low_rating} low rating`);
+        if (filterStats.backtest_error) filterParts.push(`${filterStats.backtest_error} errors`);
 
-      const fs = result.filter_stats;
-      const filterParts: string[] = [];
-      if (fs) {
-        if (fs.low_sharpe) filterParts.push(`${fs.low_sharpe} low Sharpe`);
-        if (fs.few_trades) filterParts.push(`${fs.few_trades} too few trades`);
-        if (fs.negative_cagr) filterParts.push(`${fs.negative_cagr} negative CAGR`);
-        if (fs.low_rating) filterParts.push(`${fs.low_rating} low rating`);
-        if (fs.backtest_error) filterParts.push(`${fs.backtest_error} errors`);
-      }
-      const filterDetail = filterParts.length > 0 ? `Rejected: ${filterParts.join(', ')}` : '';
-      const earlyNote = result.stopped_early ? ' (stopped early — hit time limit, run again to test more)' : '';
-      const serverTime = result.timing?.total_s ? ` · Server: ${result.timing.total_s}s` : '';
-
-      if (result.passed === 0) {
         setLastResult({
-          type: 'warning',
-          message: `No strategies passed quality filters (${result.generated} tested in ${elapsed}s)${earlyNote}`,
-          detail: filterDetail + (filterDetail ? '. ' : '') + 'Try running again — random generation produces different candidates each time.',
+          type: 'success',
+          message: `${totalSaved} strategies added to pool (${candidates.length.toLocaleString()} tested in ${elapsed}s)`,
+          detail: filterParts.length > 0 ? `Rejected: ${filterParts.join(', ')}` : undefined,
           timestamp: now,
         });
       } else {
+        const filterParts: string[] = [];
+        if (filterStats.low_sharpe) filterParts.push(`${filterStats.low_sharpe} low Sharpe`);
+        if (filterStats.few_trades) filterParts.push(`${filterStats.few_trades} too few trades`);
+        if (filterStats.negative_cagr) filterParts.push(`${filterStats.negative_cagr} negative CAGR`);
+        if (filterStats.low_rating) filterParts.push(`${filterStats.low_rating} low rating`);
+        if (filterStats.backtest_error) filterParts.push(`${filterStats.backtest_error} errors`);
+
         setLastResult({
-          type: 'success',
-          message: `${result.saved_to_db || result.passed} strategies added to pool (${result.generated} tested in ${elapsed}s)${earlyNote}`,
-          detail: filterDetail + serverTime,
+          type: 'warning',
+          message: `No strategies passed quality filters (${candidates.length.toLocaleString()} tested in ${elapsed}s)`,
+          detail: (filterParts.length > 0 ? `Rejected: ${filterParts.join(', ')}. ` : '') + 'Try running again — random generation produces different candidates each time.',
           timestamp: now,
         });
       }
+
+      setProgress({ pct: 100, phase: 'Done', tested: candidates.length, passed: passedStrategies.length });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       setLastResult({
         type: 'error',
-        message: `Discovery crashed after ${elapsed}s`,
+        message: `Discovery failed after ${elapsed}s`,
         detail: msg,
         timestamp: new Date().toLocaleTimeString(),
       });
-      setProgress({ pct: 0, phase: '', generated: 0, passed: 0 });
+      setProgress({ pct: 0, phase: '', tested: 0, passed: 0 });
     } finally {
       setRunning(false);
     }
@@ -200,9 +332,9 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
             <div className="config-value">{maxRules}</div>
           </div>
           <div className="config-item">
-            <label>Max Strategies</label>
-            <input type="range" min={500} max={5000} step={500} value={maxStrategies} onChange={e => setMaxStrategies(Number(e.target.value))} />
-            <div className="config-value">{maxStrategies}</div>
+            <label>Strategies to Test</label>
+            <input type="range" min={1000} max={50000} step={1000} value={maxStrategies} onChange={e => setMaxStrategies(Number(e.target.value))} />
+            <div className="config-value">{maxStrategies.toLocaleString()}</div>
           </div>
           <div className="config-item" style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button className="btn btn-green" onClick={runDiscovery} disabled={running}>
@@ -218,7 +350,11 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
               <span className="mono">{progress.pct}%</span>
             </div>
             <div className="progress-container">
-              <div className="progress-bar" style={{ width: `${progress.pct}%` }} />
+              <div className="progress-bar" style={{ width: `${progress.pct}%`, transition: 'width 0.3s ease' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 20, fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 8 }}>
+              <span>Tested: <strong className="mono" style={{ color: 'var(--text)' }}>{progress.tested.toLocaleString()}</strong></span>
+              <span>Passed: <strong className="mono" style={{ color: 'var(--green-light)' }}>{progress.passed.toLocaleString()}</strong></span>
             </div>
           </div>
         )}
