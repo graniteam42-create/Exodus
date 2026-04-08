@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
 
   try {
     if (action === 'save') {
+      // Verify the strategy exists first
+      const { rows: check } = await sql`SELECT id FROM strategies WHERE id = ${strategy_id}`;
+      if (check.length === 0) {
+        return NextResponse.json({ error: `Strategy ${strategy_id} not found in database` }, { status: 404 });
+      }
       await sql`
         INSERT INTO saved_strategies (strategy_id) VALUES (${strategy_id})
         ON CONFLICT (strategy_id) DO NOTHING
@@ -62,6 +67,16 @@ export async function POST(req: NextRequest) {
       await sql`DELETE FROM trades WHERE strategy_id NOT IN (SELECT strategy_id FROM saved_strategies)`;
       await sql`DELETE FROM strategy_results WHERE strategy_id NOT IN (SELECT strategy_id FROM saved_strategies)`;
       await sql`DELETE FROM strategies WHERE id NOT IN (SELECT strategy_id FROM saved_strategies)`;
+      await sql`DELETE FROM discovery_runs`;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'clear_all') {
+      // Nuclear option: delete EVERYTHING
+      await sql`DELETE FROM saved_strategies`;
+      await sql`DELETE FROM trades`;
+      await sql`DELETE FROM strategy_results`;
+      await sql`DELETE FROM strategies`;
       await sql`DELETE FROM discovery_runs`;
       return NextResponse.json({ ok: true });
     }

@@ -92,15 +92,25 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
     if (!strategy) return;
 
     const action = strategy.saved ? 'unsave' : 'save';
-    await fetch('/api/strategies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, strategy_id: strategyId }),
-    });
-
-    setStrategies(prev => prev.map(s =>
-      s.strategy_id === strategyId ? { ...s, saved: !s.saved } : s
-    ));
+    try {
+      const res = await fetch('/api/strategies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, strategy_id: strategyId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('Save failed:', err);
+        alert(`Failed to ${action} strategy: ${err.error || res.statusText}`);
+        return;
+      }
+      setStrategies(prev => prev.map(s =>
+        s.strategy_id === strategyId ? { ...s, saved: !s.saved } : s
+      ));
+    } catch (err) {
+      console.error('Save error:', err);
+      alert(`Failed to ${action} strategy`);
+    }
   }
 
   const [lastResult, setLastResult] = useState<{
@@ -370,16 +380,21 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
   }
 
   async function clearPool() {
-    if (!confirm('Delete all non-saved strategies from the pool? Saved strategies will be kept.')) return;
+    const choice = confirm('Delete ALL strategies (including saved)?\n\nOK = Delete everything\nCancel = Keep saved strategies only');
+    const action = choice ? 'clear_all' : 'clear_pool';
+
     await fetch('/api/strategies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'clear_pool' }),
+      body: JSON.stringify({ action }),
     });
-    // Also clear cached precomputed signals so next run is fresh
     cachedPrecomputed = null;
-    setStrategies(prev => prev.filter(s => s.saved));
-    setLastResult({ type: 'success', message: 'Pool cleared. Run Discovery to generate fresh strategies.', timestamp: new Date().toLocaleTimeString() });
+    if (choice) {
+      setStrategies([]);
+    } else {
+      setStrategies(prev => prev.filter(s => s.saved));
+    }
+    setLastResult({ type: 'success', message: choice ? 'All strategies deleted. Run Discovery to start fresh.' : 'Pool cleared (saved strategies kept).', timestamp: new Date().toLocaleTimeString() });
   }
 
   return (
