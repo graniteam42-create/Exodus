@@ -266,14 +266,18 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         }
       }
 
-      // Phase 4: Save passing strategies to server
+      // Phase 5: Save TOP strategies to server (sorted by rating, capped at 500)
+      const MAX_SAVE = 500;
+      passedStrategies.sort((a, b) => b.ratingScore - a.ratingScore);
+      const toSave = passedStrategies.slice(0, MAX_SAVE);
+
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       const now = new Date().toLocaleTimeString();
 
-      if (passedStrategies.length > 0) {
+      if (toSave.length > 0) {
         setProgress({
           pct: 92,
-          phase: `Saving ${passedStrategies.length} strategies to database...`,
+          phase: `Saving top ${toSave.length} of ${passedStrategies.length} strategies to database...`,
           tested: candidates.length,
           passed: passedStrategies.length,
         });
@@ -284,8 +288,8 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         const saveBatchSize = 100;
         let totalSaved = 0;
 
-        for (let i = 0; i < passedStrategies.length; i += saveBatchSize) {
-          const batch = passedStrategies.slice(i, i + saveBatchSize);
+        for (let i = 0; i < toSave.length; i += saveBatchSize) {
+          const batch = toSave.slice(i, i + saveBatchSize);
           const saveRes = await fetch('/api/discovery/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -325,8 +329,8 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
 
         setLastResult({
           type: 'success',
-          message: `${totalSaved} strategies added to pool (${candidates.length.toLocaleString()} tested in ${elapsed}s)`,
-          detail: filterParts.length > 0 ? `Rejected: ${filterParts.join(', ')}` : undefined,
+          message: `${totalSaved} best strategies saved to pool (${passedStrategies.length.toLocaleString()} passed / ${candidates.length.toLocaleString()} tested in ${elapsed}s)`,
+          detail: (passedStrategies.length > MAX_SAVE ? `Saved top ${MAX_SAVE} by rating. ` : '') + (filterParts.length > 0 ? `Rejected: ${filterParts.join(', ')}` : ''),
           timestamp: now,
         });
       } else {
