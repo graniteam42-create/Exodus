@@ -60,25 +60,30 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ pct: 0, phase: '', tested: 0, passed: 0 });
 
-  // Filters
+  // Sort & filter
   const [filterSignal, setFilterSignal] = useState('all');
-  const [filterRating, setFilterRating] = useState('any');
-  const [filterSharpe, setFilterSharpe] = useState('any');
-  const [filterDD, setFilterDD] = useState('any');
+  type SortKey = 'rating_score' | 'robustness_score' | 'cagr' | 'sharpe' | 'max_drawdown' | 'profit_factor' | 'trades_per_year' | 'name' | 'signal';
+  const [sortBy, setSortBy] = useState<SortKey>('rating_score');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  const filtered = strategies.filter(s => {
-    if (filterSignal !== 'all' && s.signal !== filterSignal) return false;
-    if (filterRating !== 'any') {
-      const minScore = filterRating === 'A+' ? 97 : filterRating === 'A' ? 93 : filterRating === 'B+' ? 87 : 83;
-      if (s.rating_score < minScore) return false;
+  function handleSort(key: SortKey) {
+    if (sortBy === key) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(key);
+      setSortDir(key === 'max_drawdown' || key === 'name' || key === 'signal' ? 'asc' : 'desc');
     }
-    if (filterSharpe !== 'any' && s.sharpe < parseFloat(filterSharpe)) return false;
-    if (filterDD !== 'any') {
-      const maxDD = parseFloat(filterDD) / 100;
-      if (Math.abs(s.max_drawdown) > maxDD) return false;
-    }
-    return true;
-  });
+  }
+
+  const filtered = strategies
+    .filter(s => filterSignal === 'all' || s.signal === filterSignal)
+    .sort((a, b) => {
+      let av: any = a[sortBy];
+      let bv: any = b[sortBy];
+      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      av = av ?? 0; bv = bv ?? 0;
+      return sortDir === 'asc' ? av - bv : bv - av;
+    });
 
   const savedCount = strategies.filter(s => s.saved).length;
 
@@ -462,36 +467,16 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         )}
       </div>
 
-      {/* Filters */}
+      {/* Signal filter */}
       <div className="filter-bar">
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.06em' }}>Filter:</span>
-        <select value={filterSignal} onChange={e => setFilterSignal(e.target.value)}>
-          <option value="all">Signal: All</option>
-          <option value="GLD">GLD</option>
-          <option value="SLV">SLV</option>
-          <option value="QQQ">QQQ</option>
-          <option value="Cash">Cash</option>
-        </select>
-        <select value={filterRating} onChange={e => setFilterRating(e.target.value)}>
-          <option value="any">Min Rating: Any</option>
-          <option value="A+">A+</option>
-          <option value="A">A</option>
-          <option value="B+">B+</option>
-          <option value="B">B</option>
-        </select>
-        <select value={filterSharpe} onChange={e => setFilterSharpe(e.target.value)}>
-          <option value="any">Min Sharpe: Any</option>
-          <option value="1.5">&gt; 1.5</option>
-          <option value="1.0">&gt; 1.0</option>
-          <option value="0.7">&gt; 0.7</option>
-        </select>
-        <select value={filterDD} onChange={e => setFilterDD(e.target.value)}>
-          <option value="any">Max Drawdown: Any</option>
-          <option value="10">&lt; 10%</option>
-          <option value="15">&lt; 15%</option>
-          <option value="20">&lt; 20%</option>
-          <option value="30">&lt; 30%</option>
-        </select>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.06em' }}>Signal:</span>
+        {['all', 'GLD', 'SLV', 'QQQ', 'Cash'].map(sig => (
+          <button key={sig} className={`btn btn-sm ${filterSignal === sig ? 'btn-active' : 'btn-outline'}`}
+            style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+            onClick={() => setFilterSignal(sig)}>
+            {sig === 'all' ? 'All' : sig}
+          </button>
+        ))}
       </div>
 
       {/* Pool freshness */}
@@ -510,15 +495,28 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
             <thead>
               <tr>
                 <th style={{ width: 36 }}></th>
-                <th>Name</th>
-                <th>Signal</th>
-                <th>Rating</th>
-                <th>Robust</th>
-                <th>CAGR</th>
-                <th>Sharpe</th>
-                <th>Max DD</th>
-                <th>Profit F.</th>
-                <th>Trades/yr</th>
+                {([
+                  ['name', 'Name'],
+                  ['signal', 'Signal'],
+                  ['rating_score', 'Rating'],
+                  ['robustness_score', 'Robust'],
+                  ['cagr', 'CAGR'],
+                  ['sharpe', 'Sharpe'],
+                  ['max_drawdown', 'Max DD'],
+                  ['profit_factor', 'Profit F.'],
+                  ['trades_per_year', 'Trades/yr'],
+                ] as [SortKey, string][]).map(([key, label]) => (
+                  <th key={key}
+                    onClick={() => handleSort(key)}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                    {label}
+                    {sortBy === key && (
+                      <span style={{ marginLeft: 4, fontSize: '0.7em', opacity: 0.7 }}>
+                        {sortDir === 'desc' ? '\u25BC' : '\u25B2'}
+                      </span>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
