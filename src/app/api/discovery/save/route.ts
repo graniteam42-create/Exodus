@@ -80,7 +80,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ saved: savedIds.length, strategy_ids: savedIds });
+    // Verify what's actually in the DB
+    const { rows: verifyCount } = await sql`SELECT COUNT(*)::int as cnt FROM strategies`;
+    const { rows: topScores } = await sql`SELECT sr.rating_score, sr.rating_grade FROM strategy_results sr ORDER BY sr.rating_score DESC LIMIT 3`;
+
+    console.log(`Discovery save: saved ${savedIds.length} strategies. DB total: ${verifyCount[0].cnt}. Top scores: ${JSON.stringify(topScores)}`);
+
+    return NextResponse.json({
+      saved: savedIds.length,
+      strategy_ids: savedIds,
+      db_total: verifyCount[0].cnt,
+      top_scores: topScores,
+      sample_input_score: strategies[0]?.ratingScore,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Discovery save error:', message);

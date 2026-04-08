@@ -98,18 +98,19 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, strategy_id: strategyId }),
       });
+      const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error('Save failed:', err);
-        alert(`Failed to ${action} strategy: ${err.error || res.statusText}`);
+        console.error('Save failed:', result);
+        alert(`Failed to ${action}: ${result.error || res.statusText}`);
         return;
       }
+      console.log(`${action} ${strategyId}: verified=${result.verified}, total_saved=${result.total_saved}`);
       setStrategies(prev => prev.map(s =>
         s.strategy_id === strategyId ? { ...s, saved: !s.saved } : s
       ));
     } catch (err) {
       console.error('Save error:', err);
-      alert(`Failed to ${action} strategy`);
+      alert(`Failed to ${action} strategy: ${err}`);
     }
   }
 
@@ -309,9 +310,12 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ strategies: batch, run_id: runId }),
           });
+          const saveResult = await saveRes.json().catch(() => ({}));
           if (saveRes.ok) {
-            const saveResult = await saveRes.json();
             totalSaved += saveResult.saved || 0;
+            console.log(`Save batch ${Math.floor(i / saveBatchSize) + 1}: saved=${saveResult.saved}, db_total=${saveResult.db_total}, top_scores=${JSON.stringify(saveResult.top_scores)}, input_score=${saveResult.sample_input_score}`);
+          } else {
+            console.error('Save batch failed:', saveResult);
           }
         }
 
