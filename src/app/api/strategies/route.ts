@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
         LEFT JOIN strategy_results sr ON s.id = sr.strategy_id
         LEFT JOIN saved_strategies ss ON s.id = ss.strategy_id
         ORDER BY sr.rating_score DESC NULLS LAST
+        LIMIT 500
       `;
       return NextResponse.json(rows);
     }
@@ -53,6 +54,15 @@ export async function POST(req: NextRequest) {
 
     if (action === 'unsave') {
       await sql`DELETE FROM saved_strategies WHERE strategy_id = ${strategy_id}`;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'clear_pool') {
+      // Delete all non-saved strategies and their results/trades
+      await sql`DELETE FROM trades WHERE strategy_id NOT IN (SELECT strategy_id FROM saved_strategies)`;
+      await sql`DELETE FROM strategy_results WHERE strategy_id NOT IN (SELECT strategy_id FROM saved_strategies)`;
+      await sql`DELETE FROM strategies WHERE id NOT IN (SELECT strategy_id FROM saved_strategies)`;
+      await sql`DELETE FROM discovery_runs`;
       return NextResponse.json({ ok: true });
     }
 

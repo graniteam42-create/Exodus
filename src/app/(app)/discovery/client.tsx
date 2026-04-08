@@ -364,6 +364,19 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
     }
   }
 
+  async function clearPool() {
+    if (!confirm('Delete all non-saved strategies from the pool? Saved strategies will be kept.')) return;
+    await fetch('/api/strategies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clear_pool' }),
+    });
+    // Also clear cached precomputed signals so next run is fresh
+    cachedPrecomputed = null;
+    setStrategies(prev => prev.filter(s => s.saved));
+    setLastResult({ type: 'success', message: 'Pool cleared. Run Discovery to generate fresh strategies.', timestamp: new Date().toLocaleTimeString() });
+  }
+
   return (
     <div>
       {/* Strategy Generation */}
@@ -380,9 +393,12 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
             <input type="range" min={1000} max={50000} step={1000} value={maxStrategies} onChange={e => setMaxStrategies(Number(e.target.value))} />
             <div className="config-value">{maxStrategies.toLocaleString()}</div>
           </div>
-          <div className="config-item" style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <div className="config-item" style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
             <button className="btn btn-green" onClick={runDiscovery} disabled={running}>
               {running ? 'Running...' : 'Run Discovery'}
+            </button>
+            <button className="btn btn-outline" onClick={clearPool} disabled={running} style={{ fontSize: '0.78rem' }}>
+              Clear Pool
             </button>
           </div>
         </div>
