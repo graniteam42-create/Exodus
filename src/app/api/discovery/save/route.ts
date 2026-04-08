@@ -8,6 +8,17 @@ export const maxDuration = 30;
  * Batch-saves passing strategies from client-side discovery.
  * Called by the browser after backtesting completes.
  */
+/** Sanitize a number for SQL: convert Infinity/NaN/null/undefined to 0 */
+function sn(v: any): number {
+  if (typeof v !== 'number' || !isFinite(v)) return 0;
+  return v;
+}
+
+/** Sanitize a string for SQL: escape single quotes */
+function ss(v: any): string {
+  return String(v || '').replace(/'/g, "''");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { scoreToGrade } = await import('@/lib/types');
@@ -46,27 +57,27 @@ export async function POST(req: NextRequest) {
 
       // Insert strategies
       const stratValues = batch.map((s, j) =>
-        `('${ids[j]}', '${s.name.replace(/'/g, "''")}', '${JSON.stringify(s.ruleIds).replace(/'/g, "''")}', 'majority', '${run_id}')`
+        `('${ids[j]}', '${ss(s.name)}', '${ss(JSON.stringify(s.ruleIds))}', 'majority', '${ss(run_id)}')`
       ).join(',');
       await sql.query(
         `INSERT INTO strategies (id, name, rules, rule_logic, discovery_run_id) VALUES ${stratValues}`
       );
 
-      // Insert results
+      // Insert results — sanitize ALL numbers to prevent Infinity/NaN crashing the INSERT
       const resValues = batch.map((s, j) =>
-        `('${ids[j]}', '${s.signal}', ${s.ratingScore}, '${scoreToGrade(s.ratingScore)}', ${s.robustnessScore}, '${scoreToGrade(s.robustnessScore)}', ${s.cagr}, ${s.sharpe}, ${s.max_drawdown}, ${s.profit_factor}, ${s.trades_per_year}, ${s.total_trades}, 0, 0, 0, true)`
+        `('${ids[j]}', '${ss(s.signal)}', ${sn(s.ratingScore)}, '${scoreToGrade(sn(s.ratingScore))}', ${sn(s.robustnessScore)}, '${scoreToGrade(sn(s.robustnessScore))}', ${sn(s.cagr)}, ${sn(s.sharpe)}, ${sn(s.max_drawdown)}, ${sn(s.profit_factor)}, ${sn(s.trades_per_year)}, ${sn(s.total_trades)}, 0, 0, 0, true)`
       ).join(',');
       await sql.query(
         `INSERT INTO strategy_results (strategy_id, signal, rating_score, rating_grade, robustness_score, robustness_grade, cagr, sharpe, max_drawdown, profit_factor, trades_per_year, total_trades, cpcv_pass_rate, dsr, pbo, sensitivity_pass) VALUES ${resValues}`
       );
 
-      // Insert last 20 trades per strategy
+      // Insert last 20 trades per strategy — sanitize numbers
       const tradeRows: string[] = [];
       for (let j = 0; j < batch.length; j++) {
         const trades = batch[j].trades?.slice(-20) || [];
         for (const t of trades) {
           tradeRows.push(
-            `('${ids[j]}', '${t.from_date}', '${t.to_date}', '${t.holding}', ${t.days}, ${t.return_pct}, ${t.good_call})`
+            `('${ids[j]}', '${ss(t.from_date)}', '${ss(t.to_date)}', '${ss(t.holding)}', ${sn(t.days)}, ${sn(t.return_pct)}, ${t.good_call ? 'true' : 'false'})`
           );
         }
       }

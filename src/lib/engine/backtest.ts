@@ -364,7 +364,7 @@ function computeSharpe(equityCurve: { date: string; value: number }[]): number {
     dailyReturns.reduce((s, v) => s + (v - mean) ** 2, 0) / (dailyReturns.length - 1);
   const stdDev = Math.sqrt(variance);
 
-  if (stdDev === 0) return mean > 0 ? Infinity : 0;
+  if (stdDev === 0) return mean > 0 ? 10 : 0;
 
   // Annualized Sharpe (assuming 0% risk-free rate, 252 trading days)
   return (mean / stdDev) * Math.sqrt(252);
@@ -401,7 +401,7 @@ function computeTradeStats(trades: TradeRecord[]): {
   const totalWins = winners.reduce((s, t) => s + t.return_pct, 0);
   const totalLosses = Math.abs(losers.reduce((s, t) => s + t.return_pct, 0));
 
-  const profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? Infinity : 0;
+  const profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 99.99 : 0;
   const winRate = trades.length > 0 ? winners.length / trades.length : 0;
   const avgWinner = winners.length > 0 ? totalWins / winners.length : 0;
   const avgLoser = losers.length > 0 ? losers.reduce((s, t) => s + t.return_pct, 0) / losers.length : 0;
