@@ -15,8 +15,8 @@ export interface EodhdTickerConfig {
  * All EODHD tickers tracked by Exodus.
  */
 export const EODHD_TICKERS: EodhdTickerConfig[] = [
-  { ticker: 'GLD.US',  display: 'Gold (GLD)'             },
-  { ticker: 'SLV.US',  display: 'Silver (SLV)'           },
+  { ticker: 'XAUUSD.FOREX', display: 'Gold Spot (XAU/USD)'   },
+  { ticker: 'XAGUSD.FOREX', display: 'Silver Spot (XAG/USD)' },
   { ticker: 'QQQ.US',  display: 'Nasdaq-100 (QQQ)'       },
   { ticker: 'UUP.US',  display: 'US Dollar (UUP)'        },
   { ticker: 'COPX.US', display: 'Copper Miners (COPX)'   },

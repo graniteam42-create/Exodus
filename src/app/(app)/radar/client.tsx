@@ -48,7 +48,7 @@ export default function RadarClient({ dataHealth, consensus, agreements, regimeS
         'UNRATE','CPIAUCSL','CPILFESL','FEDFUNDS','DGS10','DGS2','DGS3MO','RECPROUSM156N',
         'USSLIND','HOUST','INDPRO','PPIACO','RSAFS','BOGZ1FL663067003Q'
       ];
-      const tickers = ['GLD.US','SLV.US','QQQ.US','UUP.US','COPX.US','SPY.US'];
+      const tickers = ['XAUUSD.FOREX','XAGUSD.FOREX','QQQ.US','UUP.US','COPX.US','SPY.US'];
 
       for (let i = 0; i < series.length; i++) {
         setRefreshStatus(`Fetching FRED ${i+1}/${series.length}: ${series[i]}...`);

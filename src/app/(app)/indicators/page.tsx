@@ -32,7 +32,7 @@ async function getIndicatorData() {
 
 async function getTechnicalData() {
   try {
-    const tickers = ['GLD.US', 'SLV.US', 'QQQ.US'];
+    const tickers = ['XAUUSD.FOREX', 'XAGUSD.FOREX', 'QQQ.US'];
     const result: Record<string, { price: number; sma50: number; sma200: number; rsi: number; return12m: number; drawdown: number }> = {};
 
     for (const ticker of tickers) {

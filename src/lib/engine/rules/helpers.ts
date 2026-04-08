@@ -3,7 +3,7 @@ import type { MarketData, PriceRow, FredRow } from '../../types';
 // ===== TICKER RESOLUTION =====
 
 const TICKER_MAP: Record<string, string> = {
-  GLD: 'GLD.US', SLV: 'SLV.US', QQQ: 'QQQ.US',
+  GLD: 'XAUUSD.FOREX', SLV: 'XAGUSD.FOREX', QQQ: 'QQQ.US',
   SPY: 'SPY.US', UUP: 'UUP.US', COPX: 'COPX.US',
 };
 
