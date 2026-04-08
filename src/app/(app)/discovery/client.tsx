@@ -50,6 +50,9 @@ function generateName(rules: { id: string; category: string }[]): string {
   return parts.join(' + ');
 }
 
+// Module-level cache for market data (persists across runs, cleared on page reload)
+let cachedMarketData: MarketData | null = null;
+
 export default function DiscoveryClient({ strategies: initial, dataDate }: Props) {
   const [strategies, setStrategies] = useState(initial);
   const [maxRules, setMaxRules] = useState(5);
@@ -108,13 +111,20 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
     const startTime = Date.now();
 
     try {
-      // Phase 1: Download market data
-      setProgress({ pct: 5, phase: 'Downloading market data...', tested: 0, passed: 0 });
-      const dataRes = await fetch('/api/data/market');
-      if (!dataRes.ok) {
-        throw new Error('Failed to load market data. Try refreshing data first.');
+      // Phase 1: Load market data (cached after first download)
+      let data: MarketData;
+      if (cachedMarketData) {
+        setProgress({ pct: 8, phase: 'Using cached market data...', tested: 0, passed: 0 });
+        data = cachedMarketData;
+      } else {
+        setProgress({ pct: 5, phase: 'Downloading market data (first run only)...', tested: 0, passed: 0 });
+        const dataRes = await fetch('/api/data/market');
+        if (!dataRes.ok) {
+          throw new Error('Failed to load market data. Try refreshing data first.');
+        }
+        data = await dataRes.json();
+        cachedMarketData = data;
       }
-      const data: MarketData = await dataRes.json();
 
       const priceDates = Object.values(data.prices)[0];
       if (!priceDates || priceDates.length < 300) {

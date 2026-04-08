@@ -30,13 +30,51 @@ const TRADABLE_ASSETS: Asset[] = ['GLD', 'SLV', 'QQQ'];
 const TRANSACTION_COST_BPS = 10; // 10 basis points = 0.1%
 const MIN_HOLD_DAYS = 10; // trading days
 
+// Map short asset names to EODHD ticker format
+const TICKER_MAP: Record<string, string> = {
+  GLD: 'GLD.US', SLV: 'SLV.US', QQQ: 'QQQ.US',
+  SPY: 'SPY.US', UUP: 'UUP.US', COPX: 'COPX.US',
+};
+
+function resolveTicker(data: MarketData, ticker: string): string {
+  // Try exact match first, then mapped name
+  if (data.prices[ticker]) return ticker;
+  const mapped = TICKER_MAP[ticker];
+  if (mapped && data.prices[mapped]) return mapped;
+  // Try with .US suffix
+  if (data.prices[ticker + '.US']) return ticker + '.US';
+  return ticker;
+}
+
+// Cache for date→index maps per ticker (avoids repeated binary searches)
+const dateIndexCache = new WeakMap<object, Map<string, Map<string, number>>>();
+
+function getDateIndexMap(data: MarketData, ticker: string): Map<string, number> {
+  let tickerMaps = dateIndexCache.get(data);
+  if (!tickerMaps) {
+    tickerMaps = new Map();
+    dateIndexCache.set(data, tickerMaps);
+  }
+  let map = tickerMaps.get(ticker);
+  if (!map) {
+    map = new Map();
+    const rows = data.prices[ticker];
+    if (rows) {
+      for (let i = 0; i < rows.length; i++) {
+        map.set(rows[i].date, i);
+      }
+    }
+    tickerMaps.set(ticker, map);
+  }
+  return map;
+}
+
 /**
  * Get all unique trading dates across price data within a date range.
  * Returns sorted array of date strings.
  */
 function getTradingDates(data: MarketData, startDate: string, endDate: string): string[] {
-  // Use SPY or GLD as reference for trading calendar
-  const refTicker = data.prices['SPY'] ? 'SPY' : data.prices['GLD'] ? 'GLD' : Object.keys(data.prices)[0];
+  const refTicker = resolveTicker(data, 'SPY') || resolveTicker(data, 'GLD') || Object.keys(data.prices)[0];
   if (!refTicker || !data.prices[refTicker]) return [];
 
   return data.prices[refTicker]
@@ -47,25 +85,31 @@ function getTradingDates(data: MarketData, startDate: string, endDate: string): 
 
 /**
  * Get the close price for a ticker on a given date.
- * Uses adjusted_close if available and non-zero, otherwise close.
- * Falls back to the most recent available date before the requested date.
+ * Uses O(1) date→index map lookup.
  */
 function getPrice(data: MarketData, ticker: string, date: string): number | null {
-  const rows = data.prices[ticker];
+  const resolved = resolveTicker(data, ticker);
+  const rows = data.prices[resolved];
   if (!rows || rows.length === 0) return null;
 
-  // Exact match first
-  const exact = rows.find((r) => r.date === date);
-  if (exact) return exact.adjusted_close || exact.close;
-
-  // Fallback: most recent date <= requested date
-  let best: typeof rows[0] | null = null;
-  for (const row of rows) {
-    if (row.date <= date) {
-      if (!best || row.date > best.date) best = row;
-    }
+  const indexMap = getDateIndexMap(data, resolved);
+  const idx = indexMap.get(date);
+  if (idx !== undefined) {
+    return rows[idx].adjusted_close || rows[idx].close;
   }
-  return best ? (best.adjusted_close || best.close) : null;
+
+  // Fallback: binary search for nearest date <= requested
+  let lo = 0;
+  let hi = rows.length - 1;
+  if (rows[lo].date > date) return null;
+  if (rows[hi].date <= date) return rows[hi].adjusted_close || rows[hi].close;
+
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (rows[mid].date <= date) lo = mid;
+    else hi = mid - 1;
+  }
+  return rows[lo].adjusted_close || rows[lo].close;
 }
 
 /**
@@ -74,9 +118,8 @@ function getPrice(data: MarketData, ticker: string, date: string): number | null
 function getAssetReturn(data: MarketData, asset: Asset, fromDate: string, toDate: string): number {
   if (asset === 'Cash') return 0;
 
-  const ticker = asset; // GLD, SLV, QQQ map directly
-  const startPrice = getPrice(data, ticker, fromDate);
-  const endPrice = getPrice(data, ticker, toDate);
+  const startPrice = getPrice(data, asset, fromDate);
+  const endPrice = getPrice(data, asset, toDate);
 
   if (!startPrice || !endPrice || startPrice === 0) return 0;
   return (endPrice - startPrice) / startPrice;

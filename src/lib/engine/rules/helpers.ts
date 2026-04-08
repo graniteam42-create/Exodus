@@ -1,10 +1,27 @@
 import type { MarketData, PriceRow, FredRow } from '../../types';
 
+// ===== TICKER RESOLUTION =====
+
+const TICKER_MAP: Record<string, string> = {
+  GLD: 'GLD.US', SLV: 'SLV.US', QQQ: 'QQQ.US',
+  SPY: 'SPY.US', UUP: 'UUP.US', COPX: 'COPX.US',
+};
+
+/** Resolve a short ticker name (GLD) to the actual key in data.prices (GLD.US) */
+function resolveTicker(data: MarketData, ticker: string): string {
+  if (data.prices[ticker]) return ticker;
+  const mapped = TICKER_MAP[ticker];
+  if (mapped && data.prices[mapped]) return mapped;
+  if (data.prices[ticker + '.US']) return ticker + '.US';
+  return ticker;
+}
+
 // ===== DATE / INDEX HELPERS =====
 
 /** Find index of given date (or latest date <= given date) in a ticker's price array */
 export function getDateIndex(data: MarketData, ticker: string, date: string): number | null {
-  const prices = data.prices[ticker];
+  const resolved = resolveTicker(data, ticker);
+  const prices = data.prices[resolved];
   if (!prices || prices.length === 0) return null;
 
   // Binary search for the date or the closest earlier date
@@ -27,32 +44,36 @@ export function getDateIndex(data: MarketData, ticker: string, date: string): nu
 
 /** Get the date string N trading days before the given date for a ticker */
 export function tradingDaysBefore(data: MarketData, ticker: string, date: string, n: number): string | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null || idx < n) return null;
-  return data.prices[ticker][idx - n].date;
+  return data.prices[resolved][idx - n].date;
 }
 
 // ===== PRICE HELPERS =====
 
 /** Get closing price on or before a given date */
 export function getPrice(data: MarketData, ticker: string, date: string): number | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null) return null;
-  return data.prices[ticker][idx].adjusted_close;
+  return data.prices[resolved][idx].adjusted_close;
 }
 
 /** Get closing price N trading days before a given date */
 export function getPriceN(data: MarketData, ticker: string, date: string, daysBack: number): number | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null || idx < daysBack) return null;
-  return data.prices[ticker][idx - daysBack].adjusted_close;
+  return data.prices[resolved][idx - daysBack].adjusted_close;
 }
 
 /** Get high price on or before a given date */
 export function getHigh(data: MarketData, ticker: string, date: string): number | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null) return null;
-  return data.prices[ticker][idx].high;
+  return data.prices[resolved][idx].high;
 }
 
 // ===== FRED HELPERS =====
@@ -121,9 +142,10 @@ export function getRecentFredRows(data: MarketData, seriesId: string, date: stri
 
 /** Simple Moving Average over `period` trading days */
 export function getSMA(data: MarketData, ticker: string, date: string, period: number): number | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null || idx < period - 1) return null;
-  const prices = data.prices[ticker];
+  const prices = data.prices[resolved];
   let sum = 0;
   for (let i = idx - period + 1; i <= idx; i++) {
     sum += prices[i].adjusted_close;
@@ -133,9 +155,10 @@ export function getSMA(data: MarketData, ticker: string, date: string, period: n
 
 /** RSI over `period` trading days */
 export function getRSI(data: MarketData, ticker: string, date: string, period: number): number | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null || idx < period) return null;
-  const prices = data.prices[ticker];
+  const prices = data.prices[resolved];
 
   let avgGain = 0;
   let avgLoss = 0;
@@ -161,9 +184,10 @@ export function getBollingerBands(
   period: number,
   stddev: number
 ): { upper: number; middle: number; lower: number } | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null || idx < period - 1) return null;
-  const prices = data.prices[ticker];
+  const prices = data.prices[resolved];
 
   let sum = 0;
   for (let i = idx - period + 1; i <= idx; i++) {
@@ -202,9 +226,10 @@ export function getReturnMonths(data: MarketData, ticker: string, date: string, 
 
 /** Annualized realized volatility over N trading days */
 export function getRealizedVol(data: MarketData, ticker: string, date: string, days: number): number | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null || idx < days) return null;
-  const prices = data.prices[ticker];
+  const prices = data.prices[resolved];
 
   const returns: number[] = [];
   for (let i = idx - days + 1; i <= idx; i++) {
@@ -220,9 +245,10 @@ export function getRealizedVol(data: MarketData, ticker: string, date: string, d
 
 /** Max drawdown from peak over lookback period (returns positive number, e.g. 0.15 = 15%) */
 export function getDrawdownFromHigh(data: MarketData, ticker: string, date: string, lookbackDays: number): number | null {
+  const resolved = resolveTicker(data, ticker);
   const idx = getDateIndex(data, ticker, date);
   if (idx === null || idx < lookbackDays) return null;
-  const prices = data.prices[ticker];
+  const prices = data.prices[resolved];
 
   let peak = -Infinity;
   for (let i = idx - lookbackDays; i <= idx; i++) {
@@ -236,12 +262,14 @@ export function getDrawdownFromHigh(data: MarketData, ticker: string, date: stri
 
 /** Rolling correlation between two tickers over N trading days */
 export function getCorrelation(data: MarketData, ticker1: string, ticker2: string, date: string, days: number): number | null {
+  const resolved1 = resolveTicker(data, ticker1);
+  const resolved2 = resolveTicker(data, ticker2);
   const idx1 = getDateIndex(data, ticker1, date);
   const idx2 = getDateIndex(data, ticker2, date);
   if (idx1 === null || idx2 === null || idx1 < days || idx2 < days) return null;
 
-  const p1 = data.prices[ticker1];
-  const p2 = data.prices[ticker2];
+  const p1 = data.prices[resolved1];
+  const p2 = data.prices[resolved2];
 
   // Build daily return arrays aligned by date
   const returns1: number[] = [];
