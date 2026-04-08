@@ -51,6 +51,20 @@ export const FRED_SERIES: FredSeriesConfig[] = [
 
   // Recession
   { id: 'RECPROUSM156N', name: 'Recession Probabilities',       category: 'recession', frequency: 'monthly' },
+
+  // Leading Indicators
+  { id: 'USSLIND',  name: 'Leading Index for the US',            category: 'leading',   frequency: 'monthly' },
+  { id: 'HOUST',    name: 'Housing Starts',                      category: 'leading',   frequency: 'monthly' },
+  { id: 'INDPRO',   name: 'Industrial Production Index',         category: 'leading',   frequency: 'monthly' },
+
+  // Producer Prices
+  { id: 'PPIACO',   name: 'Producer Price Index (All Commodities)', category: 'inflation', frequency: 'monthly' },
+
+  // Retail
+  { id: 'RSAFS',    name: 'Advance Retail Sales',                category: 'leading',   frequency: 'monthly' },
+
+  // Financial Accounts
+  { id: 'BOGZ1FL663067003Q', name: 'NYSE Margin Debt (Quarterly)', category: 'sentiment', frequency: 'monthly' },
 ];
 
 const FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations';

@@ -100,21 +100,7 @@ const categoryB: RuleDefinition[] = [
       return nfci < -0.5;
     },
   },
-  {
-    id: 'B8',
-    category: 'B',
-    name: 'TED spread elevated',
-    condition: 'TED spread > 50bp (if available)',
-    asset: 'Cash',
-    thesis: 'Interbank stress',
-    evaluate: (data: MarketData, date: string): boolean => {
-      // TED spread = 3M LIBOR - 3M T-Bill. Approximate using DGS3MO and FEDFUNDS spread
-      // If a TED series is available, use it; otherwise this rule stays inactive
-      const ted = getFredValue(data, 'TEDRATE', date);
-      if (ted === null) return false;
-      return ted > 0.5;
-    },
-  },
+  // B8 removed: TEDRATE (TED spread) discontinued on FRED in 2022
   {
     id: 'B9',
     category: 'B',

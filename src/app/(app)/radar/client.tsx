@@ -45,7 +45,8 @@ export default function RadarClient({ dataHealth, consensus, agreements, regimeS
       const series = [
         'T10Y2Y','T10Y3M','DFII10','T10YIE','BAMLH0A0HYM2','M2SL','SAHMREALTIME',
         'UMCSENT','NFCI','DRTSCILM','WALCL','RRPONTSYD','VIXCLS','ICSA','CCSA',
-        'UNRATE','CPIAUCSL','CPILFESL','FEDFUNDS','DGS10','DGS2','DGS3MO','RECPROUSM156N'
+        'UNRATE','CPIAUCSL','CPILFESL','FEDFUNDS','DGS10','DGS2','DGS3MO','RECPROUSM156N',
+        'USSLIND','HOUST','INDPRO','PPIACO','RSAFS','BOGZ1FL663067003Q'
       ];
       const tickers = ['GLD.US','SLV.US','QQQ.US','UUP.US','COPX.US','SPY.US'];
 

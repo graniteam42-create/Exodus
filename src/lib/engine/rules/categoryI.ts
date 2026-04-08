@@ -3,10 +3,7 @@ import {
   getFredValue,
   getFredValueNMonthsAgo,
   getFredYoY,
-  getFredChangeOverMonths,
   isFredFallingForMonths,
-  isFredRisingForMonths,
-  isFredBelowForMonths,
   getRecentFredRows,
 } from './helpers';
 
@@ -69,60 +66,7 @@ const categoryI: RuleDefinition[] = [
       return true;
     },
   },
-  {
-    id: 'I4',
-    category: 'I',
-    name: 'ISM Manufacturing below 50',
-    condition: 'ISM PMI < 50 for 3+ months',
-    asset: 'GLD',
-    thesis: 'Manufacturing contraction',
-    evaluate: (data: MarketData, date: string): boolean => {
-      // NAPM or MANEMP as ISM proxy. Try NAPM (ISM Manufacturing PMI)
-      return isFredBelowForMonths(data, 'NAPM', date, 50, 3);
-    },
-  },
-  {
-    id: 'I5',
-    category: 'I',
-    name: 'ISM Manufacturing below 45',
-    condition: 'ISM PMI < 45',
-    asset: 'Cash',
-    thesis: 'Severe contraction',
-    evaluate: (data: MarketData, date: string): boolean => {
-      const val = getFredValue(data, 'NAPM', date);
-      if (val === null) return false;
-      return val < 45;
-    },
-  },
-  {
-    id: 'I6',
-    category: 'I',
-    name: 'ISM Manufacturing recovering',
-    condition: 'ISM PMI crosses above 50 from below',
-    asset: 'QQQ',
-    thesis: 'Expansion resuming',
-    evaluate: (data: MarketData, date: string): boolean => {
-      const current = getFredValue(data, 'NAPM', date);
-      const past = getFredValueNMonthsAgo(data, 'NAPM', date, 1);
-      if (current === null || past === null) return false;
-      return current >= 50 && past < 50;
-    },
-  },
-  {
-    id: 'I7',
-    category: 'I',
-    name: 'ISM New Orders weak',
-    condition: 'New Orders sub-index < Inventories sub-index',
-    asset: 'GLD',
-    thesis: 'Leading indicator of PMI decline',
-    evaluate: (data: MarketData, date: string): boolean => {
-      // NAPMNOI = ISM New Orders, NAPMII = ISM Inventories
-      const newOrders = getFredValue(data, 'NAPMNOI', date);
-      const inventories = getFredValue(data, 'NAPMII', date);
-      if (newOrders === null || inventories === null) return false;
-      return newOrders < inventories;
-    },
-  },
+  // I4-I7 removed: NAPM/NAPMNOI/NAPMII (ISM data) not available on FRED (proprietary)
   {
     id: 'I8',
     category: 'I',

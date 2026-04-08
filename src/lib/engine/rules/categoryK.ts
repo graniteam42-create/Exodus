@@ -22,74 +22,9 @@ import {
  * Where possible, we use UMCSENT as sentiment proxy.
  */
 
+// K1-K5 removed: AAII sentiment + put/call ratio not available on FRED (proprietary data)
+
 const categoryK: RuleDefinition[] = [
-  {
-    id: 'K1',
-    category: 'K',
-    name: 'AAII bearish extreme',
-    condition: 'AAII bears > 50%',
-    asset: 'QQQ',
-    thesis: 'Contrarian: extreme pessimism = buy signal',
-    evaluate: (data: MarketData, date: string): boolean => {
-      // AAII data stored as custom FRED-like series 'AAII_BEARISH'
-      const val = getFredValue(data, 'AAII_BEARISH', date);
-      if (val === null) return false;
-      return val > 50;
-    },
-  },
-  {
-    id: 'K2',
-    category: 'K',
-    name: 'AAII bullish extreme',
-    condition: 'AAII bulls > 55%',
-    asset: 'Cash',
-    thesis: 'Contrarian: extreme optimism = sell signal',
-    evaluate: (data: MarketData, date: string): boolean => {
-      const val = getFredValue(data, 'AAII_BULLISH', date);
-      if (val === null) return false;
-      return val > 55;
-    },
-  },
-  {
-    id: 'K3',
-    category: 'K',
-    name: 'Put/call ratio extreme high',
-    condition: 'Equity put/call ratio > 1.2',
-    asset: 'QQQ',
-    thesis: 'Extreme hedging = contrarian buy',
-    evaluate: (data: MarketData, date: string): boolean => {
-      const val = getFredValue(data, 'PUTCALL', date);
-      if (val === null) return false;
-      return val > 1.2;
-    },
-  },
-  {
-    id: 'K4',
-    category: 'K',
-    name: 'Put/call ratio extreme low',
-    condition: 'Equity put/call ratio < 0.5',
-    asset: 'Cash',
-    thesis: 'Extreme complacency = contrarian sell',
-    evaluate: (data: MarketData, date: string): boolean => {
-      const val = getFredValue(data, 'PUTCALL', date);
-      if (val === null) return false;
-      return val < 0.5;
-    },
-  },
-  {
-    id: 'K5',
-    category: 'K',
-    name: 'Bull-bear spread deeply negative',
-    condition: 'AAII bulls - bears < -20%',
-    asset: 'QQQ',
-    thesis: 'Historic pessimism = buy',
-    evaluate: (data: MarketData, date: string): boolean => {
-      const bulls = getFredValue(data, 'AAII_BULLISH', date);
-      const bears = getFredValue(data, 'AAII_BEARISH', date);
-      if (bulls === null || bears === null) return false;
-      return (bulls - bears) < -20;
-    },
-  },
   {
     id: 'K6',
     category: 'K',
@@ -189,19 +124,12 @@ const categoryK: RuleDefinition[] = [
     id: 'K10',
     category: 'K',
     name: 'Sentiment + macro divergence',
-    condition: 'AAII bullish > 50% AND yield curve inverted',
+    condition: 'Consumer sentiment high AND yield curve inverted',
     asset: 'Cash',
     thesis: 'Sentiment ignoring macro risk',
     evaluate: (data: MarketData, date: string): boolean => {
-      const bulls = getFredValue(data, 'AAII_BULLISH', date);
-      const spread = getFredValue(data, 'T10Y2Y', date);
-
-      if (bulls !== null && spread !== null) {
-        return bulls > 50 && spread < 0;
-      }
-
-      // Fallback: use UMCSENT > 90 as bullish proxy
       const sentiment = getFredValue(data, 'UMCSENT', date);
+      const spread = getFredValue(data, 'T10Y2Y', date);
       if (sentiment === null || spread === null) return false;
       return sentiment > 90 && spread < 0;
     },

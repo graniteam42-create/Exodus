@@ -224,11 +224,7 @@ const categoryE: RuleDefinition[] = [
     asset: 'Cash',
     thesis: 'Volatility of volatility = extreme uncertainty. VVIX >= 125 correlates with positive QQQ returns 70%+ of the time.',
     evaluate: (data: MarketData, date: string): boolean => {
-      // VVIX may not be in our dataset. If available from FRED or computed:
-      const vvix = getFredValue(data, 'VVIX', date);
-      if (vvix !== null) return vvix > 120;
-
-      // Fallback: use VIX realized vol as proxy for vol-of-vol
+      // VVIX not available on FRED. Use VIX realized vol as proxy for vol-of-vol
       const rows = data.fred['VIXCLS'];
       if (!rows || rows.length === 0) return false;
       let idx = rows.length - 1;
