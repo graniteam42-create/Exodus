@@ -96,7 +96,7 @@ function StrategyDetail({ strategy }: { strategy: StrategyResult & { name: strin
           <KpiItem label="CAGR" value={`${n(strategy.cagr) > 0 ? '+' : ''}${(n(strategy.cagr) * 100).toFixed(1)}%`} score={n(strategy.rating_score)} />
           <KpiItem label="Sharpe" value={n(strategy.sharpe).toFixed(2)} score={n(strategy.rating_score)} />
           <KpiItem label="Max DD" value={`${(n(strategy.max_drawdown) * 100).toFixed(1)}%`} score={n(strategy.rating_score)} />
-          <KpiItem label="Profit F." value={n(strategy.profit_factor).toFixed(2)} score={n(strategy.rating_score)} />
+          <KpiItem label="Win/Loss" value={n(strategy.profit_factor).toFixed(2)} score={n(strategy.rating_score)} />
           <KpiItem label="Trades/yr" value={n(strategy.trades_per_year).toFixed(1)} score={n(strategy.rating_score)} />
         </div>
         <div className="detail-grades">
@@ -185,13 +185,17 @@ function StrategyInterpretation({ rules, signal, cagr, sharpe, totalTrades }: { 
     narrative += 'It relies purely on technical/price-based signals, which react faster but can be more prone to noise. ';
   }
 
-  if (totalTrades < 10) {
-    narrative += `With only ${totalTrades} trades in the backtest, results are statistically weak \u2014 this could easily be luck. `;
-  } else if (totalTrades < 25) {
-    narrative += `${totalTrades} trades provides a modest sample \u2014 directionally useful but not conclusive. `;
+  if (totalTrades < 30) {
+    narrative += `With only ${totalTrades} trades in the backtest, results are still somewhat uncertain. `;
+  } else if (totalTrades < 60) {
+    narrative += `${totalTrades} trades provides a reasonable sample for backtesting. `;
   } else {
-    narrative += `${totalTrades} trades gives a reasonable sample size for the backtest results. `;
+    narrative += `${totalTrades} trades gives a strong statistical foundation. `;
   }
+
+  // Benchmark context
+  const cagrPct = (cagr * 100).toFixed(1);
+  narrative += `The strategy\'s ${cagrPct}% CAGR compares to typical buy-and-hold benchmarks: Gold ~8%/yr, QQQ ~12%/yr, Cash ~2%/yr over the same period. `;
 
   if (sharpe > 1.0 && cagr > 0.10) {
     narrative += 'The combination of strong CAGR and Sharpe suggests genuine edge, though out-of-sample testing would strengthen confidence.';
@@ -215,21 +219,21 @@ function RobustnessExplanation({ grade, cpcvPassRate, dsr, pbo, sensitivityPass,
   const checks: { label: string; pass: boolean; explanation: string }[] = [];
 
   // Trade count
-  if (totalTrades >= 20) {
-    checks.push({ label: 'Sample size', pass: true, explanation: `${totalTrades} trades \u2014 sufficient for basic statistics` });
-  } else if (totalTrades >= 10) {
-    checks.push({ label: 'Sample size', pass: true, explanation: `${totalTrades} trades \u2014 borderline, treat results with caution` });
+  if (totalTrades >= 60) {
+    checks.push({ label: 'Sample size', pass: true, explanation: `${totalTrades} trades \u2014 strong sample for statistical confidence` });
+  } else if (totalTrades >= 30) {
+    checks.push({ label: 'Sample size', pass: true, explanation: `${totalTrades} trades \u2014 reasonable sample, directionally reliable` });
   } else {
-    checks.push({ label: 'Sample size', pass: false, explanation: `Only ${totalTrades} trades \u2014 too few for reliable conclusions` });
+    checks.push({ label: 'Sample size', pass: false, explanation: `Only ${totalTrades} trades \u2014 results still uncertain at this sample size` });
   }
 
-  // Profit factor
+  // Win/Loss ratio (profit factor)
   if (profitFactor > 2) {
-    checks.push({ label: 'Profit factor', pass: true, explanation: `${profitFactor.toFixed(1)}x \u2014 wins significantly outweigh losses` });
+    checks.push({ label: 'Win/Loss ratio', pass: true, explanation: `${profitFactor.toFixed(1)}x \u2014 total gains are ${profitFactor.toFixed(1)}\u00D7 larger than total losses` });
   } else if (profitFactor > 1.2) {
-    checks.push({ label: 'Profit factor', pass: true, explanation: `${profitFactor.toFixed(1)}x \u2014 positive edge, wins > losses` });
+    checks.push({ label: 'Win/Loss ratio', pass: true, explanation: `${profitFactor.toFixed(1)}x \u2014 winning trades outweigh losing trades` });
   } else if (profitFactor > 0) {
-    checks.push({ label: 'Profit factor', pass: false, explanation: `${profitFactor.toFixed(1)}x \u2014 marginal edge, close to breakeven` });
+    checks.push({ label: 'Win/Loss ratio', pass: false, explanation: `${profitFactor.toFixed(1)}x \u2014 barely profitable, close to breakeven after costs` });
   }
 
   // Drawdown

@@ -36,19 +36,16 @@ export function computeRatingScore(result: BacktestResult): number {
 
 /**
  * Trades per year scoring (0-15 points).
- * Sweet spot: 2-6 trades/yr = full 15 points.
- * <1 trade/yr = 3 points (too passive).
- * >12 trades/yr = 3 points (too active).
- * Linear interpolation between.
+ * Sweet spot: 8-15 trades/yr = full 15 points.
+ * <6 trades/yr = 0 points (too few to be statistically meaningful).
+ * >25 trades/yr = 5 points (too active, likely noise).
  */
 function tradesPerYearScore(tpy: number): number {
-  if (tpy >= 2 && tpy <= 6) return 15;
-  if (tpy < 2) {
-    // 0 -> 3, 2 -> 15
-    return clampScale(tpy, 0, 2, 3, 15);
-  }
-  // > 6: 6 -> 15, 12+ -> 3
-  return clampScale(tpy, 6, 12, 15, 3);
+  if (tpy >= 8 && tpy <= 15) return 15;
+  if (tpy < 6) return 0; // Too few trades — not a real timing strategy
+  if (tpy < 8) return clampScale(tpy, 6, 8, 5, 15); // 6-8: ramp up
+  // > 15: 15 -> 15, 25+ -> 5
+  return clampScale(tpy, 15, 25, 15, 5);
 }
 
 // ===== Robustness Score (Statistical Confidence) =====

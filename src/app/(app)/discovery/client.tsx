@@ -55,8 +55,8 @@ let cachedPrecomputed: PrecomputedSignals | null = null;
 
 export default function DiscoveryClient({ strategies: initial, dataDate }: Props) {
   const [strategies, setStrategies] = useState(initial);
-  const [maxRules, setMaxRules] = useState(5);
-  const [maxStrategies, setMaxStrategies] = useState(10000);
+  const [maxRules, setMaxRules] = useState(6);
+  const [maxStrategies, setMaxStrategies] = useState(100000);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ pct: 0, phase: '', tested: 0, passed: 0 });
 
@@ -247,7 +247,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
           const result = backtestStrategyFast(candidate.ruleIds, candidate.ruleAssets, 'majority', precomputed);
 
           if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
-          if (result.total_trades < 2) { filterStats.few_trades++; continue; }
+          if (result.trades_per_year < 6) { filterStats.few_trades++; continue; }
           if (result.cagr < -0.10) { filterStats.negative_cagr++; continue; }
 
           const ratingScore = computeRatingScore(result);
@@ -409,7 +409,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
           </div>
           <div className="config-item">
             <label>Strategies to Test</label>
-            <input type="range" min={1000} max={50000} step={1000} value={maxStrategies} onChange={e => setMaxStrategies(Number(e.target.value))} />
+            <input type="range" min={10000} max={200000} step={10000} value={maxStrategies} onChange={e => setMaxStrategies(Number(e.target.value))} />
             <div className="config-value">{maxStrategies.toLocaleString()}</div>
           </div>
           <div className="config-item" style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
@@ -517,7 +517,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
                   ['cagr', 'CAGR'],
                   ['sharpe', 'Sharpe'],
                   ['max_drawdown', 'Max DD'],
-                  ['profit_factor', 'Profit F.'],
+                  ['profit_factor', 'Win/Loss'],
                   ['trades_per_year', 'Trades/yr'],
                 ] as [SortKey, string][]).map(([key, label]) => (
                   <th key={key}

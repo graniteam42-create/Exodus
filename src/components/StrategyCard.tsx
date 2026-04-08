@@ -59,7 +59,7 @@ export default function StrategyCard({ strategy, onUnsave }: StrategyCardProps) 
             <KpiItem label="CAGR" value={`${strategy.cagr > 0 ? '+' : ''}${(strategy.cagr * 100).toFixed(1)}%`} />
             <KpiItem label="Sharpe" value={strategy.sharpe.toFixed(2)} />
             <KpiItem label="Max DD" value={`${(strategy.max_drawdown * 100).toFixed(1)}%`} />
-            <KpiItem label="Profit F." value={strategy.profit_factor.toFixed(2)} />
+            <KpiItem label="Win/Loss" value={strategy.profit_factor.toFixed(2)} />
             <KpiItem label="Trades/yr" value={strategy.trades_per_year.toFixed(1)} />
           </div>
           <div className="detail-grades">
