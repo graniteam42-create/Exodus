@@ -94,7 +94,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
       const res = await fetch('/api/discovery/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_rules: maxRules, max_strategies: Math.min(maxStrategies, 50) }),
+        body: JSON.stringify({ max_rules: maxRules, max_strategies: maxStrategies }),
       });
 
       const result = await res.json();
@@ -131,18 +131,23 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         })));
       }
 
+      const fs = result.filter_stats;
+      const filterDetail = fs
+        ? `Rejected: ${fs.low_sharpe} low Sharpe, ${fs.few_trades} too few trades, ${fs.negative_cagr} negative CAGR, ${fs.low_rating} low rating, ${fs.backtest_error} errors`
+        : '';
+
       if (result.passed === 0) {
         setLastResult({
           type: 'warning',
           message: `No strategies passed quality filters (${result.generated} tested in ${elapsed}s)`,
-          detail: 'All candidates were filtered out. This can happen if market data is limited or quality thresholds are strict. Try running again — random generation produces different candidates each time.',
+          detail: filterDetail + '. Try running again — random generation produces different candidates each time.',
           timestamp: now,
         });
       } else {
         setLastResult({
           type: 'success',
           message: `${result.passed} strategies added to pool (${result.generated} tested in ${elapsed}s)`,
-          detail: `Strategy IDs: ${result.strategy_ids?.slice(0, 5).join(', ')}${result.strategy_ids?.length > 5 ? ` +${result.strategy_ids.length - 5} more` : ''}`,
+          detail: filterDetail,
           timestamp: now,
         });
       }

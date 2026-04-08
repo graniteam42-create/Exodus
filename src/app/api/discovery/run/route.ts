@@ -6,7 +6,7 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const maxRules = body.max_rules || 5;
-  const maxStrategies = Math.min(body.max_strategies || 50, 50); // Cap at 50 for timeout safety
+  const maxStrategies = body.max_strategies || 50;
 
   try {
     // Dynamic imports
@@ -57,15 +57,16 @@ export async function POST(req: NextRequest) {
     // Backtest each candidate (simplified — no CPCV/DSR/PBO for speed)
     let passed = 0;
     const results: string[] = [];
+    const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_rating: 0 };
 
     for (const candidate of candidates) {
       try {
         const result = backtestStrategy(candidate.rules, 'majority', data, startDate, endDate);
 
-        // Quick quality filters
-        if (result.sharpe < 0.2) continue;
-        if (result.total_trades < 3) continue;
-        if (result.cagr < -0.05) continue;
+        // Quality filters — track why candidates are rejected
+        if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
+        if (result.total_trades < 2) { filterStats.few_trades++; continue; }
+        if (result.cagr < -0.10) { filterStats.negative_cagr++; continue; }
 
         const ratingScore = computeRatingScore(result);
         // Simplified robustness: based on trade count, profit factor, and consistency
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
           (result.win_rate > 0.55 ? 15 : result.win_rate > 0.45 ? 10 : 5)
         ));
 
-        if (ratingScore < 55) continue;
+        if (ratingScore < 40) { filterStats.low_rating++; continue; }
 
         const current = computeCurrentSignal(candidate.rules, 'majority', data);
         const strategyId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
         passed++;
         results.push(strategyId);
       } catch {
+        filterStats.backtest_error++;
         continue;
       }
     }
@@ -118,6 +120,7 @@ export async function POST(req: NextRequest) {
       generated: candidates.length,
       passed,
       strategy_ids: results,
+      filter_stats: filterStats,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
