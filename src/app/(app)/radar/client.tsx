@@ -22,10 +22,33 @@ interface Props {
 export default function RadarClient({ dataHealth, consensus, agreements, regimeScores, indicatorAlerts }: Props) {
   const [refreshing, setRefreshing] = useState(false);
 
+  const [refreshStatus, setRefreshStatus] = useState('');
+
   async function handleRefresh() {
     setRefreshing(true);
+    setRefreshStatus('Initializing database...');
     try {
-      await fetch('/api/data/refresh', { method: 'POST' });
+      // Init DB first
+      await fetch('/api/data/init', { method: 'POST' });
+
+      // Fetch each series individually to avoid timeout
+      const series = [
+        'T10Y2Y','T10Y3M','DFII10','T10YIE','BAMLH0A0HYM2','M2SL','SAHMREALTIME',
+        'UMCSENT','NFCI','DRTSCILM','WALCL','RRPONTSYD','VIXCLS','ICSA','CCSA',
+        'UNRATE','CPIAUCSL','CPILFESL','FEDFUNDS','DGS10','DGS2','DGS3MO','RECPROUSM156N'
+      ];
+      const tickers = ['GLD.US','SLV.US','QQQ.US','UUP.US','COPX.US','SPY.US'];
+
+      for (let i = 0; i < series.length; i++) {
+        setRefreshStatus(`Fetching FRED ${i+1}/${series.length}: ${series[i]}...`);
+        await fetch(`/api/data/refresh?type=fred&id=${series[i]}`, { method: 'POST' });
+      }
+      for (let i = 0; i < tickers.length; i++) {
+        setRefreshStatus(`Fetching EODHD ${i+1}/${tickers.length}: ${tickers[i]}...`);
+        await fetch(`/api/data/refresh?type=eodhd&id=${tickers[i]}`, { method: 'POST' });
+      }
+
+      setRefreshStatus('Done! Reloading...');
       window.location.reload();
     } catch {
       alert('Data refresh failed');
@@ -40,7 +63,10 @@ export default function RadarClient({ dataHealth, consensus, agreements, regimeS
       <DataHealthBar sources={dataHealth.sources} dataDate={dataHealth.date} />
 
       {/* Refresh Button */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        {refreshing && refreshStatus && (
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{refreshStatus}</span>
+        )}
         <button className="btn btn-outline" onClick={handleRefresh} disabled={refreshing}>
           {refreshing ? 'Refreshing...' : 'Refresh Data'}
         </button>

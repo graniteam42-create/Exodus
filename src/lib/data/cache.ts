@@ -18,6 +18,73 @@ import type {
 // refreshAllData — incremental fetch for every series
 // ---------------------------------------------------------------------------
 
+/**
+ * Refresh a single FRED series or EODHD ticker.
+ * Designed to be called one at a time to stay within Vercel's 60s timeout.
+ */
+export async function refreshSingleSeries(
+  type: 'fred' | 'eodhd',
+  id: string
+): Promise<{ success: boolean; rows_added: number; error?: string }> {
+  try {
+    if (type === 'fred') {
+      const lastDate = await getLatestDate('fred', id);
+      const startDate = lastDate ? addDays(lastDate, 1) : '2000-01-01';
+      const rows = await fetchFredSeries(id, startDate);
+      if (rows.length === 0) return { success: true, rows_added: 0 };
+
+      for (const row of rows) {
+        await sql`
+          INSERT INTO fred_data (series_id, date, value)
+          VALUES (${id}, ${row.date}::date, ${row.value})
+          ON CONFLICT (series_id, date) DO UPDATE SET value = EXCLUDED.value
+        `;
+      }
+
+      const countResult = await sql`SELECT COUNT(*)::int AS cnt FROM fred_data WHERE series_id = ${id}`;
+      const totalRows = countResult.rows[0].cnt as number;
+      const maxResult = await sql`SELECT MAX(date) AS max_date FROM fred_data WHERE series_id = ${id}`;
+      const maxDate = maxResult.rows[0].max_date;
+      const maxDateStr = typeof maxDate === 'string' ? maxDate : (maxDate as Date).toISOString().slice(0, 10);
+      await upsertDataMetadata('fred', id, maxDateStr, totalRows);
+
+      return { success: true, rows_added: rows.length };
+    }
+
+    if (type === 'eodhd') {
+      const lastDate = await getLatestDate('eodhd', id);
+      const startDate = lastDate ? addDays(lastDate, 1) : '2000-01-01';
+      const rows = await fetchEodhdPrices(id, startDate);
+      if (rows.length === 0) return { success: true, rows_added: 0 };
+
+      for (const row of rows) {
+        await sql`
+          INSERT INTO price_data (ticker, date, open, high, low, close, volume, adjusted_close)
+          VALUES (${id}, ${row.date}::date, ${row.open}, ${row.high}, ${row.low}, ${row.close}, ${row.volume}, ${row.adjusted_close})
+          ON CONFLICT (ticker, date) DO UPDATE SET
+            open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low,
+            close = EXCLUDED.close, volume = EXCLUDED.volume, adjusted_close = EXCLUDED.adjusted_close
+        `;
+      }
+
+      const countResult = await sql`SELECT COUNT(*)::int AS cnt FROM price_data WHERE ticker = ${id}`;
+      const totalRows = countResult.rows[0].cnt as number;
+      const maxResult = await sql`SELECT MAX(date) AS max_date FROM price_data WHERE ticker = ${id}`;
+      const maxDate = maxResult.rows[0].max_date;
+      const maxDateStr = typeof maxDate === 'string' ? maxDate : (maxDate as Date).toISOString().slice(0, 10);
+      await upsertDataMetadata('eodhd', id, maxDateStr, totalRows);
+
+      return { success: true, rows_added: rows.length };
+    }
+
+    return { success: false, rows_added: 0, error: 'Unknown type' };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`refreshSingleSeries(${type}, ${id}):`, msg);
+    return { success: false, rows_added: 0, error: msg };
+  }
+}
+
 export async function refreshAllData(): Promise<{
   success: boolean;
   errors: string[];
