@@ -10,20 +10,20 @@ import type { BacktestResult } from './backtest';
 /**
  * Compute a 0-100 rating score based on backtest performance metrics.
  *
- * Breakdown:
- * - CAGR:         0-25 points (scaled on 0%-20% range)
- * - Sharpe:       0-25 points (scaled on 0-2.0 range)
- * - Max Drawdown: 0-20 points (scaled on 0% to -40% range, less DD = more points)
- * - Profit Factor: 0-15 points (scaled on 0-3.0 range)
- * - Trades/yr:    0-15 points (sweet spot 2-6/yr = max, too many or few = less)
+ * Calibrated for tactical allocation strategies (GLD/SLV/QQQ/Cash):
+ * - CAGR:         0-25 points (5% = decent, 12% = excellent for this asset mix)
+ * - Sharpe:       0-25 points (0.5 = decent, 1.2 = excellent for multi-asset)
+ * - Max Drawdown: 0-20 points (< 10% = excellent, > 30% = poor)
+ * - Profit Factor: 0-15 points (1.5 = decent, 3.0 = excellent)
+ * - Trades/yr:    0-15 points (sweet spot 2-6/yr = max)
  */
 export function computeRatingScore(result: BacktestResult): number {
-  const cagrPoints = clampScale(result.cagr, 0, 0.20, 0, 25);
-  const sharpePoints = clampScale(result.sharpe, 0, 2.0, 0, 25);
+  const cagrPoints = clampScale(result.cagr, 0, 0.12, 0, 25);
+  const sharpePoints = clampScale(result.sharpe, 0, 1.2, 0, 25);
 
-  // Max drawdown is negative; 0% DD = 20 points, -40% DD = 0 points
-  const ddFraction = Math.abs(result.max_drawdown); // 0 to 0.4+
-  const ddPoints = clampScale(ddFraction, 0.40, 0, 0, 20); // inverted: less DD = more points
+  // Max drawdown is negative; 0% DD = 20 points, -30% DD = 0 points
+  const ddFraction = Math.abs(result.max_drawdown);
+  const ddPoints = clampScale(ddFraction, 0.30, 0, 0, 20);
 
   const pfPoints = clampScale(result.profit_factor, 0, 3.0, 0, 15);
 
