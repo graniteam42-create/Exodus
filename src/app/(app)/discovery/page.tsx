@@ -12,10 +12,10 @@ async function getPoolStrategies() {
              sr.cagr, sr.sharpe, sr.max_drawdown, sr.profit_factor,
              sr.trades_per_year, sr.total_trades,
              sr.cpcv_pass_rate, sr.dsr, sr.pbo, sr.sensitivity_pass,
-             CASE WHEN ss.strategy_id IS NOT NULL THEN true ELSE false END as saved
+             false as saved
       FROM strategies s
       LEFT JOIN strategy_results sr ON s.id = sr.strategy_id
-      LEFT JOIN saved_strategies ss ON s.id = ss.strategy_id
+      WHERE s.id NOT IN (SELECT strategy_id FROM saved_strategies)
       ORDER BY sr.rating_score DESC NULLS LAST
       LIMIT 500
     `;

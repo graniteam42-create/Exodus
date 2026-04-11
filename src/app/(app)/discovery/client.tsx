@@ -105,9 +105,10 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         return;
       }
       console.log(`${action} ${strategyId}: verified=${result.verified}, total_saved=${result.total_saved}`);
-      setStrategies(prev => prev.map(s =>
-        s.strategy_id === strategyId ? { ...s, saved: !s.saved } : s
-      ));
+      // Saving moves strategy to Strategies page; remove from pool
+      if (action === 'save') {
+        setStrategies(prev => prev.filter(s => s.strategy_id !== strategyId));
+      }
     } catch (err) {
       console.error('Save error:', err);
       alert(`Failed to ${action} strategy: ${err}`);
@@ -404,8 +405,8 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
       body: JSON.stringify({ action: 'clear_pool' }),
     });
     cachedPrecomputed = null;
-    setStrategies(prev => prev.filter(s => s.saved));
-    setLastResult({ type: 'success', message: 'Pool cleared (saved strategies kept). Run Discovery to generate new strategies.', timestamp: new Date().toLocaleTimeString() });
+    setStrategies([]);
+    setLastResult({ type: 'success', message: 'Pool cleared. Run Discovery to generate new strategies.', timestamp: new Date().toLocaleTimeString() });
   }
 
   return (
