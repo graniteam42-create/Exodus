@@ -1,7 +1,10 @@
 import { sql } from '@vercel/postgres';
 import StrategiesClient from './client';
-import { allRules } from '@/lib/engine/rules';
+import { allRules, getRule } from '@/lib/engine/rules';
+import { backtestStrategy } from '@/lib/engine/backtest';
+import { buildMarketData } from '@/lib/data/cache';
 import type { RuleInfo } from '@/components/StrategyCard';
+import type { RuleDefinition } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,15 +30,62 @@ async function getSavedStrategies() {
       ORDER BY sr.rating_score DESC NULLS LAST
     `;
 
-    // Fetch trades for each strategy
+    // Load market data once for re-backtesting all strategies
+    let marketData = null;
+    try {
+      marketData = await buildMarketData();
+    } catch {
+      // If market data unavailable, fall back to DB trades
+    }
+
     const strategies = [];
     for (const row of rows) {
-      const { rows: trades } = await sql`
-        SELECT from_date::text, to_date::text, holding, days, return_pct, good_call
-        FROM trades
-        WHERE strategy_id = ${row.id}
-        ORDER BY from_date ASC
-      `;
+      const ruleIds: string[] = row.rules || [];
+
+      // Re-backtest to get full trade history
+      let trades: { from_date: string; to_date: string; holding: string; days: number; return_pct: number; good_call: boolean }[] = [];
+
+      if (marketData) {
+        try {
+          const ruleDefs = ruleIds.map(id => getRule(id)).filter(Boolean) as RuleDefinition[];
+          if (ruleDefs.length > 0) {
+            const priceDates = Object.values(marketData.prices)[0];
+            if (priceDates && priceDates.length >= 300) {
+              const startDate = priceDates[252]?.date || priceDates[0].date;
+              const endDate = priceDates[priceDates.length - 1].date;
+              const result = backtestStrategy(ruleDefs, (row.rule_logic as 'majority') || 'majority', marketData, startDate, endDate);
+              trades = result.trades.map(t => ({
+                from_date: t.from_date,
+                to_date: t.to_date,
+                holding: t.holding,
+                days: t.days,
+                return_pct: t.return_pct,
+                good_call: t.good_call,
+              }));
+            }
+          }
+        } catch {
+          // Fall back to DB trades on error
+        }
+      }
+
+      // Fall back to DB trades if re-backtest didn't produce results
+      if (trades.length === 0) {
+        const { rows: dbTrades } = await sql`
+          SELECT from_date::text, to_date::text, holding, days, return_pct, good_call
+          FROM trades
+          WHERE strategy_id = ${row.id}
+          ORDER BY from_date ASC
+        `;
+        trades = dbTrades.map(t => ({
+          from_date: t.from_date,
+          to_date: t.to_date,
+          holding: t.holding,
+          days: t.days,
+          return_pct: t.return_pct,
+          good_call: t.good_call,
+        }));
+      }
 
       const { rows: periods } = await sql`
         SELECT period, strategy_return, gld_return, slv_return, qqq_return, sharpe, max_dd
@@ -47,7 +97,7 @@ async function getSavedStrategies() {
       strategies.push({
         strategy_id: row.id,
         name: row.name,
-        rules: row.rules || [],
+        rules: ruleIds,
         signal: row.signal || 'Cash',
         rating_score: row.rating_score || 0,
         rating_grade: row.rating_grade || 'F',
@@ -65,14 +115,7 @@ async function getSavedStrategies() {
         sensitivity_pass: row.sensitivity_pass || false,
         saved: true,
         saved_at: row.saved_at,
-        trades: trades.map(t => ({
-          from_date: t.from_date,
-          to_date: t.to_date,
-          holding: t.holding,
-          days: t.days,
-          return_pct: t.return_pct,
-          good_call: t.good_call,
-        })),
+        trades,
         periods: periods.map(p => ({
           period: p.period,
           strategy_return: p.strategy_return,
