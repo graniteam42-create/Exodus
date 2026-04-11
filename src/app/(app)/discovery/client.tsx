@@ -285,7 +285,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
             trades_per_year: result.trades_per_year,
             total_trades: result.total_trades,
             win_rate: result.win_rate,
-            trades: result.trades?.slice(-20) || [],
+            trades: result.trades || [],
           });
         } catch {
           filterStats.backtest_error++;

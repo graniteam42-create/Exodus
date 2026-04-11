@@ -71,10 +71,10 @@ export async function POST(req: NextRequest) {
         `INSERT INTO strategy_results (strategy_id, signal, rating_score, rating_grade, robustness_score, robustness_grade, cagr, sharpe, max_drawdown, profit_factor, trades_per_year, total_trades, cpcv_pass_rate, dsr, pbo, sensitivity_pass) VALUES ${resValues}`
       );
 
-      // Insert last 20 trades per strategy — sanitize numbers
+      // Insert all trades per strategy — sanitize numbers
       const tradeRows: string[] = [];
       for (let j = 0; j < batch.length; j++) {
-        const trades = batch[j].trades?.slice(-20) || [];
+        const trades = batch[j].trades || [];
         for (const t of trades) {
           tradeRows.push(
             `('${ids[j]}', '${ss(t.from_date)}', '${ss(t.to_date)}', '${ss(t.holding)}', ${sn(t.days)}, ${sn(t.return_pct)}, ${t.good_call ? 'true' : 'false'})`

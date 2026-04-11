@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         // Batch insert last 20 trades per strategy
         const tradeRows: string[] = [];
         for (let j = 0; j < batch.length; j++) {
-          const trades = batch[j].result.trades?.slice(-20) || [];
+          const trades = batch[j].result.trades || [];
           for (const t of trades) {
             tradeRows.push(
               `('${ids[j]}', '${t.from_date}', '${t.to_date}', '${t.holding}', ${t.days}, ${t.return_pct}, ${t.good_call})`

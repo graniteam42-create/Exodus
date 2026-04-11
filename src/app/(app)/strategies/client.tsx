@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import StrategyCard from '@/components/StrategyCard';
+import type { RuleInfo } from '@/components/StrategyCard';
 
 interface Props {
   strategies: any[];
+  ruleInfo: Record<string, RuleInfo>;
 }
 
-export default function StrategiesClient({ strategies }: Props) {
+export default function StrategiesClient({ strategies, ruleInfo }: Props) {
   const [sortBy, setSortBy] = useState<string>('rating');
   const [items, setItems] = useState(strategies);
 
@@ -66,6 +68,7 @@ export default function StrategiesClient({ strategies }: Props) {
         <StrategyCard
           key={strategy.strategy_id}
           strategy={strategy}
+          ruleInfo={ruleInfo}
           onUnsave={handleUnsave}
         />
       ))}

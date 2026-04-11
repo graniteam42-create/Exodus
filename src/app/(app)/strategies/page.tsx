@@ -1,7 +1,15 @@
 import { sql } from '@vercel/postgres';
 import StrategiesClient from './client';
+import { allRules } from '@/lib/engine/rules';
+import type { RuleInfo } from '@/components/StrategyCard';
 
 export const dynamic = 'force-dynamic';
+
+// Build serializable rule info map (no evaluate functions)
+const ruleInfoMap: Record<string, RuleInfo> = {};
+for (const r of allRules) {
+  ruleInfoMap[r.id] = { id: r.id, name: r.name, condition: r.condition, asset: r.asset, thesis: r.thesis, category: r.category };
+}
 
 async function getSavedStrategies() {
   try {
@@ -85,5 +93,5 @@ async function getSavedStrategies() {
 
 export default async function StrategiesPage() {
   const strategies = await getSavedStrategies();
-  return <StrategiesClient strategies={strategies} />;
+  return <StrategiesClient strategies={strategies} ruleInfo={ruleInfoMap} />;
 }
