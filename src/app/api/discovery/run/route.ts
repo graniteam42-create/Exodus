@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Phase 2: Backtest candidates with time budget ---
-    const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_rating: 0 };
+    const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_capture: 0, low_rating: 0 };
     const passedStrategies: {
       name: string;
       ruleIds: string[];
@@ -86,8 +86,13 @@ export async function POST(req: NextRequest) {
         const result = backtestStrategy(candidate.rules, 'majority', data, startDate, endDate);
 
         if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
-        if (result.total_trades < 2) { filterStats.few_trades++; continue; }
+        if (result.trades_per_year < 6) { filterStats.few_trades++; continue; }
         if (result.cagr < -0.10) { filterStats.negative_cagr++; continue; }
+
+        // Require >= 75% of trades capture the best-returning asset
+        const goodCalls = result.trades.filter(t => t.good_call).length;
+        const captureRate = result.trades.length > 0 ? goodCalls / result.trades.length : 0;
+        if (captureRate < 0.75) { filterStats.low_capture++; continue; }
 
         const ratingScore = computeRatingScore(result);
         if (ratingScore < 40) { filterStats.low_rating++; continue; }

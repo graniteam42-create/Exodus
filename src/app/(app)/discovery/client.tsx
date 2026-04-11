@@ -208,7 +208,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
       }
 
       // Phase 4: Fast backtest using pre-computed signals
-      const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_rating: 0 };
+      const filterStats = { backtest_error: 0, low_sharpe: 0, few_trades: 0, negative_cagr: 0, low_capture: 0, low_rating: 0 };
       const passedStrategies: {
         name: string;
         ruleIds: string[];
@@ -249,6 +249,11 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
           if (result.sharpe < 0.1) { filterStats.low_sharpe++; continue; }
           if (result.trades_per_year < 6) { filterStats.few_trades++; continue; }
           if (result.cagr < -0.10) { filterStats.negative_cagr++; continue; }
+
+          // Require >= 75% of trades capture the best-returning asset
+          const goodCalls = result.trades.filter((t: any) => t.good_call).length;
+          const captureRate = result.trades.length > 0 ? goodCalls / result.trades.length : 0;
+          if (captureRate < 0.75) { filterStats.low_capture++; continue; }
 
           const ratingScore = computeRatingScore(result);
           if (ratingScore < 40) { filterStats.low_rating++; continue; }
@@ -342,6 +347,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         if (filterStats.low_sharpe) filterParts.push(`${filterStats.low_sharpe} low Sharpe`);
         if (filterStats.few_trades) filterParts.push(`${filterStats.few_trades} too few trades`);
         if (filterStats.negative_cagr) filterParts.push(`${filterStats.negative_cagr} negative CAGR`);
+        if (filterStats.low_capture) filterParts.push(`${filterStats.low_capture} low capture`);
         if (filterStats.low_rating) filterParts.push(`${filterStats.low_rating} low rating`);
         if (filterStats.backtest_error) filterParts.push(`${filterStats.backtest_error} errors`);
 
@@ -356,6 +362,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         if (filterStats.low_sharpe) filterParts.push(`${filterStats.low_sharpe} low Sharpe`);
         if (filterStats.few_trades) filterParts.push(`${filterStats.few_trades} too few trades`);
         if (filterStats.negative_cagr) filterParts.push(`${filterStats.negative_cagr} negative CAGR`);
+        if (filterStats.low_capture) filterParts.push(`${filterStats.low_capture} low capture`);
         if (filterStats.low_rating) filterParts.push(`${filterStats.low_rating} low rating`);
         if (filterStats.backtest_error) filterParts.push(`${filterStats.backtest_error} errors`);
 
