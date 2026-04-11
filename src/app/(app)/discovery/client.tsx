@@ -147,11 +147,16 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
         if ((data as any).error) {
           throw new Error(`Market data error: ${(data as any).error}`);
         }
-        cachedMarketData = data;
         const keys = Object.keys(data.prices || {});
         const fredKeys = Object.keys(data.fred || {});
         setProgress({ pct: 8, phase: `Data loaded: ${keys.length} tickers, ${fredKeys.length} FRED series`, tested: 0, passed: 0 });
         await new Promise(r => setTimeout(r, 500)); // Brief pause to show data stats
+
+        // Only cache if data is sufficient — avoids locking in empty data
+        const firstTicker = Object.values(data.prices)[0];
+        if (firstTicker && firstTicker.length >= 300) {
+          cachedMarketData = data;
+        }
       }
 
       const priceDates = Object.values(data.prices)[0];
