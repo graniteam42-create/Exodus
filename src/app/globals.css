@@ -414,6 +414,26 @@ tr:last-child td { border-bottom: none; }
 
 .detail-kpis { display: flex; gap: 20px; flex-wrap: wrap; flex: 1; }
 .detail-kpi { text-align: center; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
+.detail-kpi .kpi-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: var(--text);
+  line-height: 1.5;
+  width: 260px;
+  text-align: left;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  pointer-events: none;
+}
+.detail-kpi:hover .kpi-tooltip { display: block; }
 .detail-grades { display: flex; gap: 10px; flex-shrink: 0; }
 
 .detail-assessment {

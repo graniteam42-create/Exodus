@@ -154,11 +154,21 @@ function StrategyDetail({ strategy }: { strategy: StrategyResult & { name: strin
   );
 }
 
+const KPI_TOOLTIPS: Record<string, string> = {
+  'CAGR': 'Compound Annual Growth Rate — the average yearly return if gains were reinvested. E.g., +10% CAGR means $100 becomes $259 after 10 years.',
+  'Sharpe': 'Risk-adjusted return — how much return you get per unit of risk. Above 1.0 is good, above 1.5 is excellent. E.g., Sharpe 1.2 means strong returns relative to volatility.',
+  'Max DD': 'Maximum Drawdown — the worst peak-to-trough drop. E.g., -18% means at its worst, the strategy lost 18% from its highest point before recovering.',
+  'Profit F.': 'Profit Factor — total gains divided by total losses. E.g., 3.0x means the strategy earned $3 for every $1 it lost. Above 2.0x is strong.',
+  'Trades/yr': 'Average number of trades per year. E.g., 8.0 means the strategy switches positions about 8 times a year, or roughly every 6-7 weeks.',
+};
+
 function KpiItem({ label, value }: { label: string; value: string; score: number }) {
+  const tooltip = KPI_TOOLTIPS[label];
   return (
-    <div className="detail-kpi">
+    <div className="detail-kpi" style={{ position: 'relative', cursor: tooltip ? 'help' : 'default' }}>
       <div className="mono" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{value}</div>
-      <div>{label}</div>
+      <div style={{ borderBottom: tooltip ? '1px dotted var(--text-muted)' : 'none' }}>{label}</div>
+      {tooltip && <div className="kpi-tooltip">{tooltip}</div>}
     </div>
   );
 }
