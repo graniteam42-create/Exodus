@@ -24,6 +24,7 @@ interface StrategyCardProps {
     liveTrack?: LiveTrackRecord;
   };
   ruleInfo?: Record<string, RuleInfo>;
+  benchmarks?: Record<string, number> | null;
   onUnsave?: (id: string) => void;
 }
 
@@ -38,14 +39,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   J: 'Seasonality', K: 'Dollar', L: 'Commodities', M: 'Liquidity',
 };
 
-export default function StrategyCard({ strategy, ruleInfo, onUnsave }: StrategyCardProps) {
+export default function StrategyCard({ strategy, ruleInfo, benchmarks, onUnsave }: StrategyCardProps) {
   const ratingGrade = scoreToGrade(strategy.rating_score);
   const robustGrade = scoreToGrade(strategy.robustness_score);
   const ratingClass = ratingGrade.startsWith('A') ? 'grade-a' : ratingGrade.startsWith('B') ? 'grade-b' : ratingGrade.startsWith('C') ? 'grade-c' : 'grade-d';
   const robustClass = robustGrade.startsWith('A') ? 'grade-a' : robustGrade.startsWith('B') ? 'grade-b' : robustGrade.startsWith('C') ? 'grade-c' : 'grade-d';
 
-  // Build rule details from ruleInfo prop
+  // Build rule details from ruleInfo prop, with active status
   const ruleDetails = strategy.rules.map(id => ruleInfo?.[id]).filter(Boolean) as RuleInfo[];
+  const activeMap = new Map((strategy.activeRules || []).map(r => [r.id, r.active]));
 
   // Compute trade stats for robustness display
   const trades = strategy.trades || [];
@@ -92,26 +94,57 @@ export default function StrategyCard({ strategy, ruleInfo, onUnsave }: StrategyC
           </div>
         </div>
 
+        {/* Benchmark comparison */}
+        {benchmarks && (
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0 2px', fontSize: '0.78rem' }}>
+            <span style={{ color: 'var(--text-muted)' }}>vs B&H:</span>
+            {Object.entries(benchmarks).map(([asset, cagr]) => {
+              const diff = strategy.cagr - cagr;
+              return (
+                <span key={asset}>
+                  <span style={{ color: assetColor[asset] || '#888', fontWeight: 600 }}>{asset}</span>
+                  <span className="mono" style={{ marginLeft: 4, color: diff > 0 ? 'var(--green-light)' : 'var(--red)' }}>
+                    {diff > 0 ? '+' : ''}{(diff * 100).toFixed(1)}%
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         {/* Strategy Rules — human-readable */}
         <CollapsibleSection title={`Strategy Rules (${strategy.rules.length})`}>
           {ruleDetails.length > 0 ? (
             <div>
-              {ruleDetails.map(rule => (
-                <div key={rule.id} style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--bg)', borderRadius: 6, borderLeft: `3px solid ${assetColor[rule.asset] || '#666'}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--card)', padding: '1px 6px', borderRadius: 3 }}>{rule.id}</span>
-                    <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{rule.name}</span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>({CATEGORY_LABELS[rule.category] || rule.category})</span>
-                    <SignalBadge asset={rule.asset} />
+              {ruleDetails.map(rule => {
+                const isActive = activeMap.get(rule.id);
+                const hasStatus = isActive !== undefined;
+                return (
+                  <div key={rule.id} style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--bg)', borderRadius: 6, borderLeft: `3px solid ${assetColor[rule.asset] || '#666'}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--card)', padding: '1px 6px', borderRadius: 3 }}>{rule.id}</span>
+                      <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{rule.name}</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>({CATEGORY_LABELS[rule.category] || rule.category})</span>
+                      <SignalBadge asset={rule.asset} />
+                      {hasStatus && (
+                        <span style={{
+                          fontSize: '0.7rem', fontWeight: 700, padding: '1px 8px', borderRadius: 3,
+                          background: isActive ? 'rgba(63, 185, 80, 0.15)' : 'rgba(200, 60, 60, 0.15)',
+                          color: isActive ? 'var(--green-light)' : 'var(--red)',
+                        }}>
+                          {isActive ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mono" style={{ fontSize: '0.8rem', marginBottom: 3 }}>
+                      {rule.condition}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      {rule.thesis}
+                    </div>
                   </div>
-                  <div className="mono" style={{ fontSize: '0.8rem', marginBottom: 3 }}>
-                    {rule.condition}
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    {rule.thesis}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <StrategyAssessment rules={ruleDetails} />
             </div>
           ) : (

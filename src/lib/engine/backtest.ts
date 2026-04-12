@@ -29,6 +29,7 @@ export interface BacktestResult {
 const TRADABLE_ASSETS: Asset[] = ['GLD', 'SLV', 'QQQ'];
 const TRANSACTION_COST_BPS = 10; // 10 basis points = 0.1%
 const MIN_HOLD_DAYS = 10; // trading days
+const MAX_CASH_DAYS = 60; // force out of cash after 60 trading days
 
 // Map short asset names to EODHD ticker format
 const TICKER_MAP: Record<string, string> = {
@@ -270,8 +271,13 @@ export function backtestStrategy(
     }
 
     // Generate signal for today (evaluate at close)
-    const signal = evaluateSignal(rules, ruleLogic, data, date);
+    let signal = evaluateSignal(rules, ruleLogic, data, date);
     const daysSinceEntry = i - holdingSince;
+
+    // Force out of cash after MAX_CASH_DAYS
+    if (currentHolding === 'Cash' && signal === 'Cash' && daysSinceEntry >= MAX_CASH_DAYS && !pendingSignal) {
+      signal = getBestRecentAsset(data, date);
+    }
 
     if (signal !== currentHolding && daysSinceEntry >= MIN_HOLD_DAYS) {
       // Queue trade for T+1 execution
@@ -345,6 +351,34 @@ function getBestAlternativeReturn(
     if (ret > best) best = ret;
   }
   return best === -Infinity ? 0 : best;
+}
+
+/**
+ * Pick the best-performing tradable asset over the last ~60 trading days.
+ * Used when cash timeout triggers to choose a reasonable re-entry.
+ */
+function getBestRecentAsset(data: MarketData, date: string): Asset {
+  let best: Asset = 'GLD'; // default
+  let bestReturn = -Infinity;
+  for (const asset of TRADABLE_ASSETS) {
+    // Look back ~60 trading days
+    const ticker = resolveTicker(data, asset);
+    const prices = data.prices[ticker];
+    if (!prices || prices.length === 0) continue;
+    const dateIdx = prices.findIndex(p => p.date >= date);
+    const idx = dateIdx >= 0 ? dateIdx : prices.length - 1;
+    const lookback = Math.max(0, idx - 60);
+    if (lookback >= idx) continue;
+    const startPrice = prices[lookback].adjusted_close;
+    const endPrice = prices[idx].adjusted_close;
+    if (startPrice <= 0) continue;
+    const ret = (endPrice - startPrice) / startPrice;
+    if (ret > bestReturn) {
+      bestReturn = ret;
+      best = asset;
+    }
+  }
+  return best;
 }
 
 function computeSharpe(equityCurve: { date: string; value: number }[]): number {
@@ -587,6 +621,22 @@ export function backtestStrategyFast(
     }
 
     const daysSinceEntry = i - holdingSince;
+
+    // Force out of cash after MAX_CASH_DAYS — pick best recent performer
+    if (currentHolding === 'Cash' && signal === 'Cash' && daysSinceEntry >= MAX_CASH_DAYS && !pendingSignal) {
+      const lookbackIdx = Math.max(0, i - 60);
+      let bestAsset: Asset = 'GLD';
+      let bestRet = -Infinity;
+      for (const asset of TRADABLE_ASSETS) {
+        const ticker = TICKER_MAP[asset] || asset;
+        const cum = precomputed.cumulativeReturns[ticker];
+        if (!cum || !cum[i] || !cum[lookbackIdx]) continue;
+        const ret = cum[i] / cum[lookbackIdx] - 1;
+        if (ret > bestRet) { bestRet = ret; bestAsset = asset; }
+      }
+      signal = bestAsset;
+    }
+
     if (signal !== currentHolding && daysSinceEntry >= MIN_HOLD_DAYS) {
       pendingSignal = { signal, signalDay: i };
     }

@@ -1,7 +1,8 @@
 import { sql } from '@vercel/postgres';
 import StrategiesClient from './client';
 import { allRules, getRule } from '@/lib/engine/rules';
-import { backtestStrategy } from '@/lib/engine/backtest';
+import { backtestStrategy, getAssetReturn, getTradingDates } from '@/lib/engine/backtest';
+import { computeCurrentSignal } from '@/lib/engine/signals';
 import { buildMarketData } from '@/lib/data/cache';
 import type { RuleInfo } from '@/components/StrategyCard';
 import type { RuleDefinition } from '@/lib/types';
@@ -32,8 +33,21 @@ async function getSavedStrategies() {
 
     // Load market data once for re-backtesting all strategies
     let marketData = null;
+    let benchmarks: Record<string, number> | null = null;
     try {
       marketData = await buildMarketData();
+      // Compute B&H CAGR benchmarks for each asset
+      const priceDates = Object.values(marketData.prices)[0];
+      if (priceDates && priceDates.length >= 300) {
+        const startDate = priceDates[252]?.date || priceDates[0].date;
+        const endDate = priceDates[priceDates.length - 1].date;
+        const totalYears = (priceDates.length - 252) / 252;
+        benchmarks = {};
+        for (const asset of ['GLD', 'SLV', 'QQQ'] as const) {
+          const totalReturn = getAssetReturn(marketData, asset, startDate, endDate);
+          benchmarks[asset] = totalYears > 0 ? Math.pow(1 + totalReturn, 1 / totalYears) - 1 : 0;
+        }
+      }
     } catch {
       // If market data unavailable, fall back to DB trades
     }
@@ -41,13 +55,13 @@ async function getSavedStrategies() {
     const strategies = [];
     for (const row of rows) {
       const ruleIds: string[] = row.rules || [];
+      const ruleDefs = ruleIds.map(id => getRule(id)).filter(Boolean) as RuleDefinition[];
 
       // Re-backtest to get full trade history
       let trades: { from_date: string; to_date: string; holding: string; days: number; return_pct: number; good_call: boolean }[] = [];
 
       if (marketData) {
         try {
-          const ruleDefs = ruleIds.map(id => getRule(id)).filter(Boolean) as RuleDefinition[];
           if (ruleDefs.length > 0) {
             const priceDates = Object.values(marketData.prices)[0];
             if (priceDates && priceDates.length >= 300) {
@@ -87,6 +101,17 @@ async function getSavedStrategies() {
         }));
       }
 
+      // Compute current rule activation status
+      let activeRules: { id: string; active: boolean; value?: string }[] | undefined;
+      if (marketData && ruleDefs.length > 0) {
+        try {
+          const signalResult = computeCurrentSignal(ruleDefs, (row.rule_logic as string) || 'majority', marketData);
+          activeRules = signalResult.activeRules;
+        } catch {
+          // Skip if signal computation fails
+        }
+      }
+
       const { rows: periods } = await sql`
         SELECT period, strategy_return, gld_return, slv_return, qqq_return, sharpe, max_dd
         FROM period_breakdowns
@@ -98,6 +123,7 @@ async function getSavedStrategies() {
         strategy_id: row.id,
         name: row.name,
         rules: ruleIds,
+        activeRules,
         signal: row.signal || 'Cash',
         rating_score: row.rating_score || 0,
         rating_grade: row.rating_grade || 'F',
@@ -128,13 +154,13 @@ async function getSavedStrategies() {
       });
     }
 
-    return strategies;
+    return { strategies, benchmarks };
   } catch {
-    return [];
+    return { strategies: [], benchmarks: null };
   }
 }
 
 export default async function StrategiesPage() {
-  const strategies = await getSavedStrategies();
-  return <StrategiesClient strategies={strategies} ruleInfo={ruleInfoMap} />;
+  const { strategies, benchmarks } = await getSavedStrategies();
+  return <StrategiesClient strategies={strategies} ruleInfo={ruleInfoMap} benchmarks={benchmarks} />;
 }

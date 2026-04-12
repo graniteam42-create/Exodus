@@ -7,9 +7,10 @@ import type { RuleInfo } from '@/components/StrategyCard';
 interface Props {
   strategies: any[];
   ruleInfo: Record<string, RuleInfo>;
+  benchmarks: Record<string, number> | null;
 }
 
-export default function StrategiesClient({ strategies, ruleInfo }: Props) {
+export default function StrategiesClient({ strategies, ruleInfo, benchmarks }: Props) {
   const [sortBy, setSortBy] = useState<string>('rating');
   const [items, setItems] = useState(strategies);
 
@@ -55,6 +56,23 @@ export default function StrategiesClient({ strategies, ruleInfo }: Props) {
         </select>
       </div>
 
+      {benchmarks && (
+        <div className="card" style={{ padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Buy & Hold Benchmarks
+          </span>
+          {Object.entries(benchmarks).map(([asset, cagr]) => (
+            <span key={asset} style={{ fontSize: '0.82rem' }}>
+              <span style={{ color: asset === 'GLD' ? '#B8860B' : asset === 'SLV' ? '#8A8A8A' : '#2C5F82', fontWeight: 600 }}>{asset}</span>
+              <span className="mono" style={{ marginLeft: 6, color: cagr > 0 ? 'var(--green-light)' : 'var(--red)' }}>
+                {cagr > 0 ? '+' : ''}{(cagr * 100).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 2 }}>CAGR</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {sorted.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: 40 }}>
           <p style={{ color: 'var(--text-muted)', marginBottom: 8 }}>No saved strategies yet.</p>
@@ -69,6 +87,7 @@ export default function StrategiesClient({ strategies, ruleInfo }: Props) {
           key={strategy.strategy_id}
           strategy={strategy}
           ruleInfo={ruleInfo}
+          benchmarks={benchmarks}
           onUnsave={handleUnsave}
         />
       ))}
