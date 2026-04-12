@@ -94,6 +94,11 @@ export default function StrategyCard({ strategy, ruleInfo, benchmarks, onUnsave 
           </div>
         </div>
 
+        {/* Signal explanation */}
+        {strategy.activeRules && strategy.activeRules.length > 0 && (
+          <SignalExplanation activeRules={strategy.activeRules} signal={strategy.signal} ruleInfo={ruleInfo} totalRules={strategy.rules.length} />
+        )}
+
         {/* Benchmark comparison */}
         {benchmarks && (
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0 2px', fontSize: '0.78rem' }}>
@@ -103,8 +108,11 @@ export default function StrategyCard({ strategy, ruleInfo, benchmarks, onUnsave 
               return (
                 <span key={asset}>
                   <span style={{ color: assetColor[asset] || '#888', fontWeight: 600 }}>{asset}</span>
-                  <span className="mono" style={{ marginLeft: 4, color: diff > 0 ? 'var(--green-light)' : 'var(--red)' }}>
-                    {diff > 0 ? '+' : ''}{(diff * 100).toFixed(1)}%
+                  <span className="mono" style={{ marginLeft: 4, color: 'var(--text-muted)' }}>
+                    {cagr > 0 ? '+' : ''}{(cagr * 100).toFixed(1)}%
+                  </span>
+                  <span className="mono" style={{ marginLeft: 2, color: diff > 0 ? 'var(--green-light)' : 'var(--red)' }}>
+                    ({diff > 0 ? '+' : ''}{(diff * 100).toFixed(1)}%)
                   </span>
                 </span>
               );
@@ -296,6 +304,49 @@ function StrategyAssessment({ rules }: { rules: RuleInfo[] }) {
           <span style={{ color: f.type === 'good' ? 'var(--green-light)' : f.type === 'warn' ? 'var(--red)' : 'var(--text-muted)' }}>{f.text}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Explains why the strategy is currently in Cash or a specific asset */
+function SignalExplanation({ activeRules, signal, ruleInfo, totalRules }: {
+  activeRules: { id: string; active: boolean; value?: string }[];
+  signal: string;
+  ruleInfo?: Record<string, RuleInfo>;
+  totalRules: number;
+}) {
+  const activeCount = activeRules.filter(r => r.active).length;
+  const majorityNeeded = Math.floor(totalRules / 2) + 1;
+
+  // Count votes by asset
+  const votes: Record<string, string[]> = {};
+  for (const r of activeRules) {
+    if (r.active) {
+      const info = ruleInfo?.[r.id];
+      const asset = info?.asset || r.value || '?';
+      if (!votes[asset]) votes[asset] = [];
+      votes[asset].push(info?.id || r.id);
+    }
+  }
+
+  const voteDesc = Object.entries(votes)
+    .map(([asset, ids]) => `${ids.join(', ')} \u2192 ${asset}`)
+    .join('; ');
+
+  let explanation: string;
+  if (signal === 'Cash') {
+    if (activeCount === 0) {
+      explanation = `No rules are active \u2014 all conditions are currently false, so strategy defaults to Cash.`;
+    } else {
+      explanation = `Only ${activeCount}/${totalRules} rules active (need ${majorityNeeded} for majority). ${voteDesc}. Not enough conviction to leave Cash.`;
+    }
+  } else {
+    explanation = `${activeCount}/${totalRules} rules active (majority met). ${voteDesc}. Majority vote \u2192 ${signal}.`;
+  }
+
+  return (
+    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', padding: '4px 0 2px', fontStyle: 'italic' }}>
+      {explanation}
     </div>
   );
 }

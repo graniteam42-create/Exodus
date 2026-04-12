@@ -36,12 +36,14 @@ async function getSavedStrategies() {
     let benchmarks: Record<string, number> | null = null;
     try {
       marketData = await buildMarketData();
-      // Compute B&H CAGR benchmarks for each asset
+      // Compute B&H CAGR benchmarks for each asset over the full backtest period
       const priceDates = Object.values(marketData.prices)[0];
       if (priceDates && priceDates.length >= 300) {
         const startDate = priceDates[252]?.date || priceDates[0].date;
         const endDate = priceDates[priceDates.length - 1].date;
-        const totalYears = (priceDates.length - 252) / 252;
+        // Compute years from actual dates, not data point count
+        const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
+        const totalYears = (new Date(endDate).getTime() - new Date(startDate).getTime()) / msPerYear;
         benchmarks = {};
         for (const asset of ['GLD', 'SLV', 'QQQ'] as const) {
           const totalReturn = getAssetReturn(marketData, asset, startDate, endDate);
