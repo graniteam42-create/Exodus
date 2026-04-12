@@ -96,7 +96,7 @@ function StrategyDetail({ strategy }: { strategy: StrategyResult & { name: strin
           <KpiItem label="CAGR" value={`${n(strategy.cagr) > 0 ? '+' : ''}${(n(strategy.cagr) * 100).toFixed(1)}%`} score={n(strategy.rating_score)} />
           <KpiItem label="Sharpe" value={n(strategy.sharpe).toFixed(2)} score={n(strategy.rating_score)} />
           <KpiItem label="Max DD" value={`${(n(strategy.max_drawdown) * 100).toFixed(1)}%`} score={n(strategy.rating_score)} />
-          <KpiItem label="Win/Loss" value={n(strategy.profit_factor).toFixed(2)} score={n(strategy.rating_score)} />
+          <KpiItem label="Profit F." value={`${n(strategy.profit_factor).toFixed(1)}x`} score={n(strategy.rating_score)} />
           <KpiItem label="Trades/yr" value={n(strategy.trades_per_year).toFixed(1)} score={n(strategy.rating_score)} />
         </div>
         <div className="detail-grades">

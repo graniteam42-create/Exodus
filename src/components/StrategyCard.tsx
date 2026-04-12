@@ -24,7 +24,7 @@ interface StrategyCardProps {
     liveTrack?: LiveTrackRecord;
   };
   ruleInfo?: Record<string, RuleInfo>;
-  benchmarks?: Record<string, number> | null;
+  benchmarks?: { assets: Record<string, { cagr: number; totalReturn: number }>; years: number; startDate: string; endDate: string } | null;
   onUnsave?: (id: string) => void;
 }
 
@@ -85,7 +85,8 @@ export default function StrategyCard({ strategy, ruleInfo, benchmarks, onUnsave 
             <KpiItem label="CAGR" value={`${strategy.cagr > 0 ? '+' : ''}${(strategy.cagr * 100).toFixed(1)}%`} />
             <KpiItem label="Sharpe" value={strategy.sharpe.toFixed(2)} />
             <KpiItem label="Max DD" value={`${(strategy.max_drawdown * 100).toFixed(1)}%`} />
-            <KpiItem label="Win/Loss" value={strategy.profit_factor.toFixed(2)} />
+            <KpiItem label="Profit F." value={`${strategy.profit_factor.toFixed(1)}x`} />
+            <KpiItem label="Capture" value={`${(captureRate * 100).toFixed(0)}%`} />
             <KpiItem label="Trades/yr" value={strategy.trades_per_year.toFixed(1)} />
           </div>
           <div className="detail-grades">
@@ -102,17 +103,14 @@ export default function StrategyCard({ strategy, ruleInfo, benchmarks, onUnsave 
         {/* Benchmark comparison */}
         {benchmarks && (
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0 2px', fontSize: '0.78rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>vs B&H:</span>
-            {Object.entries(benchmarks).map(([asset, cagr]) => {
-              const diff = strategy.cagr - cagr;
+            <span style={{ color: 'var(--text-muted)' }}>vs B&H CAGR:</span>
+            {Object.entries(benchmarks.assets).map(([asset, b]) => {
+              const diff = strategy.cagr - b.cagr;
               return (
                 <span key={asset}>
                   <span style={{ color: assetColor[asset] || '#888', fontWeight: 600 }}>{asset}</span>
-                  <span className="mono" style={{ marginLeft: 4, color: 'var(--text-muted)' }}>
-                    {cagr > 0 ? '+' : ''}{(cagr * 100).toFixed(1)}%
-                  </span>
-                  <span className="mono" style={{ marginLeft: 2, color: diff > 0 ? 'var(--green-light)' : 'var(--red)' }}>
-                    ({diff > 0 ? '+' : ''}{(diff * 100).toFixed(1)}%)
+                  <span className="mono" style={{ marginLeft: 4, color: diff > 0 ? 'var(--green-light)' : 'var(--red)', fontWeight: 600 }}>
+                    {diff > 0 ? '+' : ''}{(diff * 100).toFixed(1)}%
                   </span>
                 </span>
               );

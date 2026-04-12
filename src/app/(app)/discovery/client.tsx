@@ -530,7 +530,7 @@ export default function DiscoveryClient({ strategies: initial, dataDate }: Props
                   ['cagr', 'CAGR'],
                   ['sharpe', 'Sharpe'],
                   ['max_drawdown', 'Max DD'],
-                  ['profit_factor', 'Win/Loss'],
+                  ['profit_factor', 'Profit F.'],
                   ['trades_per_year', 'Trades/yr'],
                 ] as [SortKey, string][]).map(([key, label]) => (
                   <th key={key}

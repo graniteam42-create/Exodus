@@ -33,22 +33,24 @@ async function getSavedStrategies() {
 
     // Load market data once for re-backtesting all strategies
     let marketData = null;
-    let benchmarks: Record<string, number> | null = null;
+    let benchmarks: { assets: Record<string, { cagr: number; totalReturn: number }>; years: number; startDate: string; endDate: string } | null = null;
     try {
       marketData = await buildMarketData();
-      // Compute B&H CAGR benchmarks for each asset over the full backtest period
+      // Compute B&H benchmarks for each asset over the full backtest period
       const priceDates = Object.values(marketData.prices)[0];
       if (priceDates && priceDates.length >= 300) {
         const startDate = priceDates[252]?.date || priceDates[0].date;
         const endDate = priceDates[priceDates.length - 1].date;
-        // Compute years from actual dates, not data point count
+        // Compute years from actual dates
         const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
         const totalYears = (new Date(endDate).getTime() - new Date(startDate).getTime()) / msPerYear;
-        benchmarks = {};
+        const assetBenchmarks: Record<string, { cagr: number; totalReturn: number }> = {};
         for (const asset of ['GLD', 'SLV', 'QQQ'] as const) {
           const totalReturn = getAssetReturn(marketData, asset, startDate, endDate);
-          benchmarks[asset] = totalYears > 0 ? Math.pow(1 + totalReturn, 1 / totalYears) - 1 : 0;
+          const cagr = totalYears > 0 ? Math.pow(1 + totalReturn, 1 / totalYears) - 1 : 0;
+          assetBenchmarks[asset] = { cagr, totalReturn };
         }
+        benchmarks = { assets: assetBenchmarks, years: totalYears, startDate, endDate };
       }
     } catch {
       // If market data unavailable, fall back to DB trades

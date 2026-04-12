@@ -7,7 +7,7 @@ import type { RuleInfo } from '@/components/StrategyCard';
 interface Props {
   strategies: any[];
   ruleInfo: Record<string, RuleInfo>;
-  benchmarks: Record<string, number> | null;
+  benchmarks: { assets: Record<string, { cagr: number; totalReturn: number }>; years: number; startDate: string; endDate: string } | null;
 }
 
 export default function StrategiesClient({ strategies, ruleInfo, benchmarks }: Props) {
@@ -57,19 +57,23 @@ export default function StrategiesClient({ strategies, ruleInfo, benchmarks }: P
       </div>
 
       {benchmarks && (
-        <div className="card" style={{ padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Buy & Hold Benchmarks
-          </span>
-          {Object.entries(benchmarks).map(([asset, cagr]) => (
-            <span key={asset} style={{ fontSize: '0.82rem' }}>
-              <span style={{ color: asset === 'GLD' ? '#B8860B' : asset === 'SLV' ? '#8A8A8A' : '#2C5F82', fontWeight: 600 }}>{asset}</span>
-              <span className="mono" style={{ marginLeft: 6, color: cagr > 0 ? 'var(--green-light)' : 'var(--red)' }}>
-                {cagr > 0 ? '+' : ''}{(cagr * 100).toFixed(1)}%
-              </span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 2 }}>CAGR</span>
+        <div className="card" style={{ padding: '10px 16px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              B&H ({benchmarks.startDate.slice(0, 4)}\u2013{benchmarks.endDate.slice(0, 4)})
             </span>
-          ))}
+            {Object.entries(benchmarks.assets).map(([asset, b]) => (
+              <span key={asset} style={{ fontSize: '0.82rem' }}>
+                <span style={{ color: asset === 'GLD' ? '#B8860B' : asset === 'SLV' ? '#8A8A8A' : '#2C5F82', fontWeight: 600 }}>{asset}</span>
+                <span className="mono" style={{ marginLeft: 6, color: 'var(--text)' }}>
+                  {b.totalReturn > 0 ? '+' : ''}{(b.totalReturn * 100).toFixed(0)}%
+                </span>
+                <span className="mono" style={{ marginLeft: 4, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  ({b.cagr > 0 ? '+' : ''}{(b.cagr * 100).toFixed(1)}% CAGR)
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
